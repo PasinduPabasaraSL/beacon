@@ -40,6 +40,7 @@ export function useProject(projectId: string) {
     queryKey: ['projects', projectId],
     queryFn: ({ signal }) =>
       apiFetch<ProjectDetail>(`/projects/${projectId}`, { signal }),
+    enabled: !!projectId,
   })
 }
 
@@ -93,12 +94,12 @@ export function useMe() {
   })
 }
 
-export function useMyWeek() {
+export function useMyWeek({ enabled = true } = {}) {
   const actingUserId = useActingUserId()
   return useQuery({
     queryKey: ['me', actingUserId, 'week'],
     queryFn: ({ signal }) => apiFetch<MyWeek>('/me/week', { signal }),
-    enabled: !!actingUserId,
+    enabled: !!actingUserId && enabled,
   })
 }
 

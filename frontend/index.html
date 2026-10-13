@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Beacon</title>
+    <script>
+      // Applies the saved theme before first paint; next-themes takes over after mount.
+      try {
+        var t = localStorage.getItem('beacon.theme') || 'system'
+        if (t === 'system')
+          t = matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+        document.documentElement.classList.add(t)
+        document.documentElement.style.colorScheme = t
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

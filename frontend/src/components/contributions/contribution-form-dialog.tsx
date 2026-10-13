@@ -137,7 +137,7 @@ function ContributionForm({
       </DialogHeader>
 
       {entry?.reviewStatus === 'CHANGES_REQUESTED' && entry.reviewComment && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="border-warning/35 bg-warning-soft text-warning-foreground rounded-md border px-3 py-2 text-sm">
           <span className="font-medium">Requested changes: </span>
           {entry.reviewComment}
         </p>

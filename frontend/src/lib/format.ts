@@ -100,11 +100,11 @@ export const CATEGORY_LABELS: Record<StatusCategory, string> = {
 }
 
 export const CATEGORY_COLORS: Record<StatusCategory, string> = {
-  BACKLOG: 'bg-slate-300',
-  TODO: 'bg-slate-500',
-  IN_PROGRESS: 'bg-blue-500',
-  IN_REVIEW: 'bg-purple-500',
-  DONE: 'bg-green-500',
+  BACKLOG: 'bg-chart-4',
+  TODO: 'bg-chart-3',
+  IN_PROGRESS: 'bg-info',
+  IN_REVIEW: 'bg-brand',
+  DONE: 'bg-success',
 }
 
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {
@@ -117,10 +117,10 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
 
 export const PRIORITY_STYLES: Record<TaskPriority, string> = {
   NONE: 'border-border text-muted-foreground',
-  LOW: 'border-slate-200 bg-slate-50 text-slate-700',
-  MEDIUM: 'border-amber-200 bg-amber-50 text-amber-800',
-  HIGH: 'border-orange-200 bg-orange-50 text-orange-800',
-  URGENT: 'border-red-200 bg-red-50 text-red-700',
+  LOW: 'border-border bg-muted text-muted-foreground',
+  MEDIUM: 'border-info/25 bg-info-soft text-info-foreground',
+  HIGH: 'border-warning/35 bg-warning-soft text-warning-foreground',
+  URGENT: 'border-danger/30 bg-danger-soft text-danger-foreground',
 }
 
 export const ROLE_LABELS: Record<ProjectRole, string> = {
@@ -156,8 +156,9 @@ export const REVIEW_LABELS: Record<ContributionReviewStatus, string> = {
 
 export const REVIEW_STYLES: Record<ContributionReviewStatus, string> = {
   PENDING: 'border-border text-muted-foreground',
-  APPROVED: 'border-green-200 bg-green-50 text-green-800',
-  CHANGES_REQUESTED: 'border-amber-200 bg-amber-50 text-amber-800',
+  APPROVED: 'border-success/30 bg-success-soft text-success-foreground',
+  CHANGES_REQUESTED:
+    'border-warning/35 bg-warning-soft text-warning-foreground',
 }
 
 export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
@@ -168,8 +169,8 @@ export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
 
 export const MILESTONE_STATUS_STYLES: Record<MilestoneStatus, string> = {
   UPCOMING: 'border-border text-muted-foreground',
-  OVERDUE: 'border-red-200 bg-red-50 text-red-700',
-  COMPLETE: 'border-green-200 bg-green-50 text-green-800',
+  OVERDUE: 'border-danger/30 bg-danger-soft text-danger-foreground',
+  COMPLETE: 'border-success/30 bg-success-soft text-success-foreground',
 }
 
 export const SIGNATURE_METHOD_LABELS: Record<SignatureMethod, string> = {
@@ -224,8 +225,9 @@ export const MEETING_STATUS_LABELS: Record<MeetingRecordStatus, string> = {
 
 export const MEETING_STATUS_STYLES: Record<MeetingRecordStatus, string> = {
   SUBMITTED: 'border-border text-muted-foreground',
-  CHANGES_REQUESTED: 'border-amber-200 bg-amber-50 text-amber-800',
-  CERTIFIED: 'border-green-200 bg-green-50 text-green-800',
+  CHANGES_REQUESTED:
+    'border-warning/35 bg-warning-soft text-warning-foreground',
+  CERTIFIED: 'border-success/30 bg-success-soft text-success-foreground',
 }
 
 /** Fields of the record book details page, in print order. */

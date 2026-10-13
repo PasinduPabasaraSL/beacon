@@ -1,6 +1,5 @@
 import { UserRound } from 'lucide-react'
 import { useEffect } from 'react'
-import { MySignatureButton } from '@/components/signature/signature-dialog'
 import {
   Select,
   SelectContent,
@@ -17,6 +16,7 @@ import { displayName } from '@/lib/format'
 export function ActingUserSwitcher() {
   const actingUserId = useActingUserId()
   const { data: users } = useDevUsers()
+  const actingUser = users?.find((u) => u.id === actingUserId)
 
   // Forget a stored user that no longer exists (e.g. after a database reset).
   useEffect(() => {
@@ -26,37 +26,54 @@ export function ActingUserSwitcher() {
   }, [users, actingUserId])
 
   return (
-    <div className="flex flex-col gap-1.5 border-t px-3 py-3">
-      <p className="text-muted-foreground px-2 text-xs font-medium">
-        Acting as <span className="font-normal">(dev only)</span>
-      </p>
-      <Select
-        value={actingUserId ?? ''}
-        onValueChange={(value) => setActingUserId(value || null)}
+    <Select
+      value={actingUserId ?? ''}
+      onValueChange={(value) => setActingUserId(value || null)}
+    >
+      <SelectTrigger
+        aria-label="Acting as user"
+        className="hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent h-12! w-full border-0 bg-transparent px-2 shadow-none group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0 dark:bg-transparent group-data-[collapsible=icon]:[&>svg]:hidden"
       >
-        <SelectTrigger
-          className="bg-background w-full"
-          aria-label="Acting as user"
-        >
-          <SelectValue
-            placeholder={
-              <span className="flex items-center gap-2">
+        <SelectValue
+          placeholder={
+            <span className="flex items-center gap-2">
+              <span className="bg-sidebar-accent flex size-8 shrink-0 items-center justify-center rounded-full">
                 <UserRound className="size-4" />
-                Choose a user
               </span>
-            }
-          />
-        </SelectTrigger>
-        <SelectContent>
-          {users?.map((user) => (
-            <SelectItem key={user.id} value={user.id}>
-              <UserAvatar user={user} size="sm" withTooltip={false} />
-              {displayName(user)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {actingUserId && <MySignatureButton />}
-    </div>
+              <span className="flex flex-col text-left leading-tight group-data-[collapsible=icon]:hidden">
+                <span className="text-sidebar-foreground font-medium">
+                  Choose a user
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Acting as · dev only
+                </span>
+              </span>
+            </span>
+          }
+        >
+          {actingUser && (
+            <span className="flex min-w-0 items-center gap-2">
+              <UserAvatar user={actingUser} withTooltip={false} />
+              <span className="flex min-w-0 flex-col text-left leading-tight group-data-[collapsible=icon]:hidden">
+                <span className="text-sidebar-foreground truncate font-medium">
+                  {displayName(actingUser)}
+                </span>
+                <span className="text-muted-foreground truncate text-xs">
+                  Acting as · dev only
+                </span>
+              </span>
+            </span>
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent position="popper" side="top" align="start">
+        {users?.map((user) => (
+          <SelectItem key={user.id} value={user.id}>
+            <UserAvatar user={user} size="sm" withTooltip={false} />
+            {displayName(user)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }

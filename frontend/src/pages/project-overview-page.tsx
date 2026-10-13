@@ -181,7 +181,7 @@ function WeeklyTrend({
                 <div
                   className={cn(
                     'w-full max-w-12 rounded-t-md',
-                    isCurrent ? 'bg-primary' : 'bg-primary/30',
+                    isCurrent ? 'bg-brand' : 'bg-foreground/12',
                   )}
                   style={{
                     height: `${Math.max((week.hours / max) * 100, 2)}%`,
@@ -253,7 +253,7 @@ function WorkloadTable({
                   <div className="flex items-center gap-2">
                     <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
                       <div
-                        className="bg-primary/70 h-full rounded-full"
+                        className="bg-brand h-full rounded-full"
                         style={{
                           width: `${(row.hoursLast4Weeks / maxHours) * 100}%`,
                         }}
@@ -326,7 +326,11 @@ export function ProjectOverviewPage() {
         <StatCard
           label="Overdue tasks"
           value={
-            <span className={cn(overdueTasks.length > 0 && 'text-red-600')}>
+            <span
+              className={cn(
+                overdueTasks.length > 0 && 'text-danger-foreground',
+              )}
+            >
               {overdueTasks.length}
             </span>
           }
@@ -361,12 +365,12 @@ export function ProjectOverviewPage() {
               <ul className="flex flex-col gap-2">
                 {overdueTasks.map((task) => (
                   <li key={task.id} className="flex items-center gap-2 text-sm">
-                    <AlertTriangle className="size-4 shrink-0 text-red-600" />
+                    <AlertTriangle className="text-danger-foreground size-4 shrink-0" />
                     <Badge variant="outline" className="font-mono">
                       {task.key}
                     </Badge>
                     <span className="truncate">{task.title}</span>
-                    <span className="ml-auto shrink-0 text-xs text-red-600">
+                    <span className="text-danger-foreground ml-auto shrink-0 text-xs">
                       due {formatDate(task.dueDate)}
                     </span>
                   </li>

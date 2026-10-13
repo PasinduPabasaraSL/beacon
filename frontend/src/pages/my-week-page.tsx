@@ -7,6 +7,7 @@ import {
   PriorityBadge,
 } from '@/components/badges'
 import { ContributionFormDialog } from '@/components/contributions/contribution-form-dialog'
+import { PageHeader } from '@/components/page-header'
 import { EmptyState, ErrorState } from '@/components/query-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -308,37 +309,33 @@ export function MyWeekPage() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-muted-foreground text-sm">
-            {headline?.academicWeek && headline.teachingWeeks !== null
-              ? [
-                  headline.semesterName,
-                  academicWeekLabel(
-                    headline.academicWeek,
-                    headline.teachingWeeks,
-                  ),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
-              : formatWeekRange(data.weekStart)}
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">My week</h1>
-          {headline?.academicWeek && (
-            <p className="text-muted-foreground text-sm">
-              {formatWeekRange(data.weekStart)}
-            </p>
-          )}
-        </div>
-        {loggable.length > 0 && (
-          <div className="text-right">
-            <p className="text-2xl font-semibold tabular-nums">
-              {formatHours(data.totalHours)}
-            </p>
-            <p className="text-muted-foreground text-xs">logged this week</p>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        eyebrow={
+          headline?.academicWeek && headline.teachingWeeks !== null
+            ? [
+                headline.semesterName,
+                academicWeekLabel(
+                  headline.academicWeek,
+                  headline.teachingWeeks,
+                ),
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : undefined
+        }
+        title="My week"
+        description={formatWeekRange(data.weekStart)}
+        actions={
+          loggable.length > 0 && (
+            <div className="text-right">
+              <p className="text-2xl font-semibold tabular-nums">
+                {formatHours(data.totalHours)}
+              </p>
+              <p className="text-muted-foreground text-xs">logged this week</p>
+            </div>
+          )
+        }
+      />
 
       {data.pendingReviews > 0 && (
         <Card className="py-4">

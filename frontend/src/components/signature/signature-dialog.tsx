@@ -1,5 +1,5 @@
 import '@fontsource/dancing-script/600.css'
-import { PenLine, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useRef, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { SignatureImage } from '@/components/signature/signature-image'
@@ -259,23 +259,5 @@ function SignatureForm({
         </Button>
       </DialogFooter>
     </form>
-  )
-}
-
-/** Sidebar entry for managing the acting user's signature. */
-export function MySignatureButton() {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-muted-foreground justify-start"
-        onClick={() => setOpen(true)}
-      >
-        <PenLine /> My signature
-      </Button>
-      <SignatureDialog open={open} onOpenChange={setOpen} />
-    </>
   )
 }

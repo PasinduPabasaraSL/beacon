@@ -36,7 +36,8 @@ test('online update is certified with a typed signature and printed', async ({
 
   // The supervisor saves a typed signature.
   await actAs(page, 'Dr. Silva (Supervisor)')
-  await page.getByRole('button', { name: 'My signature' }).click()
+  await page.getByRole('button', { name: 'Account menu' }).click()
+  await page.getByRole('menuitem', { name: 'My signature' }).click()
   await dialog.getByRole('tab', { name: 'Type' }).click()
   await dialog.getByLabel('Full name').fill('P. Silva')
   await expect(dialog.getByTestId('typed-signature-preview')).toHaveText(

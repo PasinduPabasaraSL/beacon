@@ -39,7 +39,7 @@ function WeekCell({
                 : 'bg-background'
               : 'bg-muted/40 text-muted-foreground border-dashed',
             isCurrent &&
-              'border-primary bg-primary text-primary-foreground border-solid',
+              'border-brand bg-brand text-brand-foreground border-solid',
           )}
         >
           {isTeaching ? (
@@ -53,7 +53,7 @@ function WeekCell({
             <span
               className={cn(
                 'ring-background absolute -bottom-1 left-1/2 size-2 -translate-x-1/2 rounded-full ring-2',
-                isCurrent ? 'bg-primary' : 'bg-foreground',
+                isCurrent ? 'bg-brand-strong' : 'bg-foreground',
               )}
             />
           )}
@@ -105,7 +105,7 @@ export function SemesterStrip({
       </div>
       <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <span className="flex items-center gap-1.5">
-          <span className="bg-primary size-2.5 rounded-sm" /> This week
+          <span className="bg-brand size-2.5 rounded-sm" /> This week
         </span>
         <span className="flex items-center gap-1.5">
           <Coffee className="size-3.5" /> Break

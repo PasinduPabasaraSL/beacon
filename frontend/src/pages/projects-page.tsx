@@ -1,7 +1,10 @@
 import { CalendarDays } from 'lucide-react'
 import { Link } from 'react-router'
+import { PageHeader } from '@/components/page-header'
+import { ProjectIcon } from '@/components/project-icon'
 import { EmptyState, ErrorState, LoadingBlocks } from '@/components/query-state'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -11,9 +14,10 @@ import {
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { UserAvatarStack } from '@/components/user-avatar'
-import { useProjects } from '@/hooks/queries'
+import { useWorkspaceProjects } from '@/hooks/use-workspace-projects'
 import { formatDate } from '@/lib/format'
 import type { ProjectListItem } from '@/lib/types'
+import { setWorkspaceId } from '@/lib/workspace'
 
 function ProjectCard({ project }: { project: ProjectListItem }) {
   const { total, done } = project.taskCounts
@@ -24,10 +28,11 @@ function ProjectCard({ project }: { project: ProjectListItem }) {
       to={`/projects/${project.id}`}
       className="focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:outline-none"
     >
-      <Card className="hover:border-foreground/20 hover:bg-muted/30 h-full transition-colors">
+      <Card className="hover:border-foreground/20 h-full transition-[border-color,box-shadow] hover:shadow-md">
         <CardHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex items-start gap-3">
+            <ProjectIcon projectKey={project.key} />
+            <div className="min-w-0 flex-1">
               <CardTitle className="truncate">{project.name}</CardTitle>
               <CardDescription>{project.workspace.name}</CardDescription>
             </div>
@@ -72,22 +77,36 @@ function ProjectCard({ project }: { project: ProjectListItem }) {
 }
 
 export function ProjectsPage() {
-  const { data: projects, error, isPending, refetch } = useProjects()
+  const { projects, workspace, error, isPending, refetch } =
+    useWorkspaceProjects()
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-        <p className="text-muted-foreground text-sm">
-          Everything your teams are working on.
-        </p>
-      </div>
+      <PageHeader
+        title="Projects"
+        description={
+          workspace
+            ? `Projects in ${workspace.name}.`
+            : 'Everything your teams are working on.'
+        }
+        actions={
+          workspace && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setWorkspaceId(null)}
+            >
+              Show all workspaces
+            </Button>
+          )
+        }
+      />
 
       {isPending ? (
         <LoadingBlocks />
       ) : error ? (
         <ErrorState error={error} onRetry={() => refetch()} />
-      ) : projects.length === 0 ? (
+      ) : !projects || projects.length === 0 ? (
         <EmptyState
           title="No projects yet"
           description="Run `npm run db:seed` in backend/ to load the demo project."

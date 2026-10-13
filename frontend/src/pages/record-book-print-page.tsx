@@ -297,7 +297,7 @@ export function RecordBookPrintPage() {
   }, [book])
 
   return (
-    <div className="bg-muted/40 text-foreground min-h-svh print:bg-transparent">
+    <div className="light bg-muted/40 text-foreground min-h-svh print:bg-transparent">
       <div className="bg-background sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b px-6 print:hidden">
         <Button variant="ghost" size="sm" asChild>
           <Link to={`/projects/${projectId}/record-book`}>

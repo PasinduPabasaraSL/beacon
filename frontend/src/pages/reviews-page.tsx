@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ContributionTypeBadge } from '@/components/badges'
 import { EntryActions } from '@/components/contributions/entry-actions'
 import { MeetingCard } from '@/components/record-book/meeting-card'
+import { PageHeader } from '@/components/page-header'
 import { EmptyState, ErrorState } from '@/components/query-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -286,28 +287,25 @@ export function ReviewsPage() {
     })
 
   const header = (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Reviews</h1>
-        <p className="text-muted-foreground text-sm">
-          Record book entries and weekly contributions from the groups you
-          supervise
-        </p>
-      </div>
-      {groups.length > 0 && (
-        <Button
-          onClick={approveSelected}
-          disabled={selected.size === 0 || approve.isPending}
-        >
-          <Check />
-          {approve.isPending
-            ? 'Approving...'
-            : selected.size > 0
-              ? `Approve ${selected.size} selected`
-              : 'Approve selected'}
-        </Button>
-      )}
-    </div>
+    <PageHeader
+      title="Reviews"
+      description="Record book entries and weekly contributions from the groups you supervise"
+      actions={
+        groups.length > 0 && (
+          <Button
+            onClick={approveSelected}
+            disabled={selected.size === 0 || approve.isPending}
+          >
+            <Check />
+            {approve.isPending
+              ? 'Approving...'
+              : selected.size > 0
+                ? `Approve ${selected.size} selected`
+                : 'Approve selected'}
+          </Button>
+        )
+      }
+    />
   )
 
   let body
