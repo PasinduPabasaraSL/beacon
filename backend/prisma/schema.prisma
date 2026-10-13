@@ -5,3 +5,337 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+/// SUPERVISOR has read access to the whole project and reviews contributions.
+enum ProjectRole {
+  OWNER
+  MEMBER
+  VIEWER
+  SUPERVISOR
+}
+
+/// Fixed categories that every custom workflow column maps to.
+enum StatusCategory {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+enum ContributionType {
+  DEVELOPMENT
+  TESTING
+  RESEARCH
+  DOCUMENTATION
+  MEETING
+  OTHER
+}
+
+enum ContributionReviewStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+/// Non-teaching weeks inside a semester. They don't get a teaching week number.
+enum SemesterBreakKind {
+  BREAK
+  EXAM
+}
+
+// ---------------------------------------------------------------------------
+// Identity and tenancy
+// ---------------------------------------------------------------------------
+
+model User {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  githubId    String   @unique @map("github_id")
+  githubLogin String   @unique @map("github_login")
+  name        String?
+  email       String?
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspaceMemberships  WorkspaceMember[]
+  projectMemberships    ProjectMember[]
+  taskAssignments       TaskAssignee[]
+  reportedTasks         Task[]              @relation("TaskReporter")
+  contributions         ContributionEntry[] @relation("ContributionAuthor")
+  reviewedContributions ContributionEntry[] @relation("ContributionReviewer")
+
+  @@map("users")
+}
+
+model Workspace {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  name          String
+  slug          String    @unique
+  /// Academic calendar shared by every group in the workspace, e.g. "Semester 2, 2026".
+  semesterName  String?   @map("semester_name")
+  /// Monday of teaching week 1. Set together with `semesterWeeks`.
+  semesterStart DateTime? @map("semester_start") @db.Date
+  /// Calendar weeks in the semester, including break and exam weeks.
+  semesterWeeks Int?      @map("semester_weeks")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  members        WorkspaceMember[]
+  projects       Project[]
+  semesterBreaks SemesterBreak[]
+
+  @@map("workspaces")
+}
+
+model SemesterBreak {
+  workspaceId String            @map("workspace_id") @db.Uuid
+  /// Monday of the break week; must fall inside the semester (enforced in the API).
+  weekStart   DateTime          @map("week_start") @db.Date
+  kind        SemesterBreakKind
+  label       String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, weekStart])
+  @@map("semester_breaks")
+}
+
+model WorkspaceMember {
+  workspaceId String        @map("workspace_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  role        WorkspaceRole @default(MEMBER)
+  joinedAt    DateTime      @default(now()) @map("joined_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+model Project {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  /// Short uppercase prefix for task identifiers, e.g. "BCN" -> BCN-42.
+  key         String
+  description String?
+  /// Last issued task number; incremented when a task is created.
+  taskCounter Int       @default(0) @map("task_counter")
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  workspace     Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members       ProjectMember[]
+  statuses      WorkflowStatus[]
+  sprints       Sprint[]
+  milestones    Milestone[]
+  tasks         Task[]
+  contributions ContributionEntry[]
+
+  @@unique([workspaceId, key])
+  @@map("projects")
+}
+
+/// Project members must also be members of the project's workspace (enforced in the API).
+model ProjectMember {
+  projectId String      @map("project_id") @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  role      ProjectRole @default(MEMBER)
+  joinedAt  DateTime    @default(now()) @map("joined_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+/// A board column. Each project is seeded with one column per category and can add custom ones.
+model WorkflowStatus {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  projectId String         @map("project_id") @db.Uuid
+  name      String
+  category  StatusCategory
+  position  Int
+  color     String?
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@unique([projectId, name])
+  @@index([projectId, position])
+  @@map("workflow_statuses")
+}
+
+// ---------------------------------------------------------------------------
+// Planning
+// ---------------------------------------------------------------------------
+
+model Sprint {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  projectId String       @map("project_id") @db.Uuid
+  name      String
+  goal      String?
+  startDate DateTime     @map("start_date") @db.Date
+  endDate   DateTime     @map("end_date") @db.Date
+  status    SprintStatus @default(PLANNED)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId, status])
+  @@map("sprints")
+}
+
+/// An assessed deliverable (proposal, demo, final report). Progress is derived from its tasks.
+model Milestone {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  title       String
+  description String?
+  dueDate     DateTime @map("due_date") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId, dueDate])
+  @@map("milestones")
+}
+
+model Task {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  projectId   String       @map("project_id") @db.Uuid
+  /// Per-project sequence number, shown as `${project.key}-${number}`.
+  number      Int
+  title       String
+  description String?
+  statusId    String       @map("status_id") @db.Uuid
+  priority    TaskPriority @default(NONE)
+  reporterId  String       @map("reporter_id") @db.Uuid
+  sprintId    String?      @map("sprint_id") @db.Uuid
+  /// Must belong to the same project (enforced in the API).
+  milestoneId String?      @map("milestone_id") @db.Uuid
+  dueDate     DateTime?    @map("due_date") @db.Date
+  /// Ordering within a board column.
+  position    Float        @default(0)
+  completedAt DateTime?    @map("completed_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status    WorkflowStatus @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  reporter  User           @relation("TaskReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  sprint    Sprint?        @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  milestone Milestone?     @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  assignees     TaskAssignee[]
+  blockedBy     TaskDependency[]    @relation("BlockedTask")
+  blocking      TaskDependency[]    @relation("BlockingTask")
+  contributions ContributionEntry[]
+
+  @@unique([projectId, number])
+  @@index([projectId, statusId, position])
+  @@index([sprintId])
+  @@index([milestoneId])
+  @@map("tasks")
+}
+
+/// Assignees must be members of the task's project (enforced in the API).
+model TaskAssignee {
+  taskId     String   @map("task_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
+/// `blockingTask` must be completed before `blockedTask` can proceed.
+model TaskDependency {
+  blockingTaskId String   @map("blocking_task_id") @db.Uuid
+  blockedTaskId  String   @map("blocked_task_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  blockingTask Task @relation("BlockingTask", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+  blockedTask  Task @relation("BlockedTask", fields: [blockedTaskId], references: [id], onDelete: Cascade)
+
+  @@id([blockingTaskId, blockedTaskId])
+  @@index([blockedTaskId])
+  @@map("task_dependencies")
+}
+
+// ---------------------------------------------------------------------------
+// Contributions
+// ---------------------------------------------------------------------------
+
+/// Self-reported weekly work. Hours are entered by the student, never derived from GitHub activity.
+model ContributionEntry {
+  id            String                   @id @default(uuid(7)) @db.Uuid
+  projectId     String                   @map("project_id") @db.Uuid
+  userId        String                   @map("user_id") @db.Uuid
+  /// Monday of the ISO week the work belongs to.
+  weekStart     DateTime                 @map("week_start") @db.Date
+  hours         Decimal                  @db.Decimal(5, 2)
+  type          ContributionType
+  taskId        String?                  @map("task_id") @db.Uuid
+  description   String
+  reviewStatus  ContributionReviewStatus @default(PENDING) @map("review_status")
+  reviewedById  String?                  @map("reviewed_by_id") @db.Uuid
+  reviewedAt    DateTime?                @map("reviewed_at")
+  reviewComment String?                  @map("review_comment")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User    @relation("ContributionAuthor", fields: [userId], references: [id], onDelete: Restrict)
+  task       Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  reviewedBy User?   @relation("ContributionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, weekStart])
+  @@index([userId, weekStart])
+  @@index([taskId])
+  @@map("contribution_entries")
+}

@@ -1,8 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
+import { ContributionsModule } from './contributions/contributions.module';
+import { DevModule } from './dev/dev.module';
 import { HealthModule } from './health/health.module';
+import { MeModule } from './me/me.module';
+import { MilestonesModule } from './milestones/milestones.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProjectsModule } from './projects/projects.module';
+import { WorkspacesModule } from './workspaces/workspaces.module';
 
 @Module({
   imports: [
@@ -14,6 +20,12 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
     PrismaModule,
     HealthModule,
+    ProjectsModule,
+    ContributionsModule,
+    MilestonesModule,
+    WorkspacesModule,
+    MeModule,
+    DevModule,
   ],
 })
 export class AppModule {}

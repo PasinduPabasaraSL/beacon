@@ -15,7 +15,7 @@ FROM deps AS dev
 ENV NODE_ENV=development
 COPY --chown=node:node . .
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start:dev"]
+CMD ["sh", "-c", "npm install --no-audit --no-fund && npx prisma generate && npx prisma migrate deploy && npm run start:dev"]
 
 FROM deps AS build
 COPY --chown=node:node . .

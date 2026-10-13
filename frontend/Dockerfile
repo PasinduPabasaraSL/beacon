@@ -10,7 +10,7 @@ RUN npm ci
 FROM deps AS dev
 COPY --chown=node:node . .
 EXPOSE 5173
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npm install --no-audit --no-fund && npm run dev"]
 
 FROM deps AS build
 ARG VITE_API_URL=/api
