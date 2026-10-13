@@ -46,11 +46,11 @@ export function TeamView({
 
   return (
     <div className="bg-card overflow-x-auto rounded-xl border">
-      <table className="w-full min-w-[960px] table-fixed border-collapse text-sm">
+      <table className="w-full min-w-240 table-fixed border-collapse text-sm">
         <colgroup>
           <col />
           {week.days.map((day) => (
-            <col key={day} className="w-[72px]" />
+            <col key={day} className="w-18" />
           ))}
           <col className="w-20" />
           <col className="w-40" />

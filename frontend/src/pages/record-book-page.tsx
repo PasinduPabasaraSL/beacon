@@ -1,7 +1,8 @@
-import { Plus, Printer } from 'lucide-react'
+import { BookOpen, Plus, Printer } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ErrorState } from '@/components/query-state'
+import { RecordBookViewer } from '@/components/record-book/book-viewer'
 import { RecordBookDetailsCard } from '@/components/record-book/details-card'
 import { MeetingCard } from '@/components/record-book/meeting-card'
 import { MeetingDialog } from '@/components/record-book/meeting-dialog'
@@ -30,6 +31,7 @@ export function RecordBookPage() {
   const actingUserId = useActingUserId()
   const { data: book, error, isPending, refetch } = useRecordBook(projectId)
   const [adding, setAdding] = useState(false)
+  const [viewing, setViewing] = useState(false)
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />
   if (isPending) {
@@ -62,10 +64,13 @@ export function RecordBookPage() {
               : `${meetings.length} ${meetings.length === 1 ? 'entry' : 'entries'} · ${awaiting} awaiting the supervisor`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setViewing(true)}>
+            <BookOpen /> View record book
+          </Button>
           <Button variant="outline" asChild>
             <Link to="print">
-              <Printer /> Print view
+              <Printer /> Print
             </Link>
           </Button>
           {member && (
@@ -126,6 +131,7 @@ export function RecordBookPage() {
         open={adding}
         onOpenChange={setAdding}
       />
+      <RecordBookViewer book={book} open={viewing} onOpenChange={setViewing} />
     </div>
   )
 }

@@ -249,7 +249,7 @@ function Column({
           </Button>
         </span>
       </header>
-      <div className="-mx-1 flex min-h-0 flex-1 [scrollbar-width:thin] flex-col gap-1.5 overflow-y-auto px-1 pb-1">
+      <div className="-mx-1 flex min-h-0 flex-1 scrollbar-thin flex-col gap-1.5 overflow-y-auto px-1 pb-1">
         {tasks.length === 0 ? (
           <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-xs">
             {filtered && column.tasks.length > 0
@@ -404,7 +404,7 @@ export function BoardPage() {
       <div ref={fillRef} className="-mx-4 min-h-0 sm:-mx-6 lg:-mx-8">
         <div
           ref={scrollRef}
-          className="h-full snap-x snap-mandatory scroll-px-4 [scrollbar-width:thin] overflow-x-auto px-4 pb-2 sm:scroll-px-6 sm:px-6 md:snap-none lg:px-8"
+          className="h-full snap-x snap-mandatory scroll-px-4 scrollbar-thin overflow-x-auto px-4 pb-2 sm:scroll-px-6 sm:px-6 md:snap-none lg:px-8"
           style={edgeMask(edges)}
         >
           <div className="flex h-full w-max gap-3">

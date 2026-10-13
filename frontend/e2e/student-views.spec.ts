@@ -40,7 +40,9 @@ test('weekly check-in, quick log and supervisor review queue', async ({
   await actAs(page, 'Dr. Silva (Supervisor)')
   await page.goto('/')
   await expect(page).toHaveURL(/\/reviews$/)
-  await expect(page.getByText('Weekly timesheets')).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Weekly timesheets' }),
+  ).toBeVisible()
   await expect(
     page.getByText('Sprint planning meeting with the team.'),
   ).toBeVisible()

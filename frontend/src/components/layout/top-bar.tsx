@@ -88,7 +88,7 @@ export function TopBar() {
   const [commandOpen, setCommandOpen] = useState(false)
 
   return (
-    <header className="bg-background/85 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur lg:px-6">
+    <header className="bg-background/85 supports-backdrop-filter:bg-background/70 sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur lg:px-6">
       <SidebarTrigger className="-ml-1.5" />
       <Separator
         orientation="vertical"

@@ -70,11 +70,11 @@ export function TimesheetGrid({
 
   return (
     <div className="bg-card overflow-x-auto rounded-xl border">
-      <table className="w-full min-w-[960px] table-fixed border-collapse text-sm">
+      <table className="w-full min-w-240 table-fixed border-collapse text-sm">
         <colgroup>
           <col />
           {days.map((day) => (
-            <col key={day} className="w-[84px]" />
+            <col key={day} className="w-21" />
           ))}
           <col className="w-20" />
           <col className="w-11" />

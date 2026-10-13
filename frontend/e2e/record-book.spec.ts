@@ -80,3 +80,38 @@ test('online update is certified with a typed signature and printed', async ({
     page.getByRole('button', { name: 'Print / Save as PDF' }),
   ).toBeEnabled()
 })
+
+test('the record book opens as a book and turns pages', async ({ page }) => {
+  await page.goto('/projects')
+  const card = page.getByRole('main').getByRole('link', {
+    name: /Beacon Capstone/,
+  })
+  await expect(card.or(page.getByText('No projects yet'))).toBeVisible()
+  test.skip((await card.count()) === 0, 'Demo seed not loaded')
+  await card.click()
+  await page.getByRole('link', { name: 'Record book', exact: true }).click()
+
+  await page.getByRole('button', { name: 'View record book' }).click()
+  const book = page.getByRole('dialog')
+  await expect(book.getByText('Cover', { exact: true }).last()).toBeVisible()
+  await expect(
+    book.getByRole('button', { name: 'Previous page' }),
+  ).toBeDisabled()
+
+  await book.getByRole('button', { name: 'Next page' }).click()
+  await expect(
+    book.getByRole('heading', { name: 'Group members' }),
+  ).toBeVisible()
+  await page.keyboard.press('ArrowRight')
+  await expect(book.getByRole('heading', { name: 'Contents' })).toBeVisible()
+
+  // Contents entries jump straight to a meeting.
+  await book.getByRole('button', { name: /^Meeting 1/ }).click()
+  await expect(book.getByRole('heading', { name: 'Meeting 1' })).toBeVisible()
+  await expect(book.getByRole('group', { name: 'Meeting 1' })).toContainText(
+    'Certified',
+  )
+
+  await page.keyboard.press('Escape')
+  await expect(book).toBeHidden()
+})
