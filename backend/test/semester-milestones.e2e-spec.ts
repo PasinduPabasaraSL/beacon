@@ -247,7 +247,10 @@ describe('Semester, milestones and personal views (e2e)', () => {
     let milestone: MilestoneBody;
 
     it('only lets owners and supervisors create them', async () => {
-      const body = { title: 'Midterm demo', dueDate: day(thisWeek) };
+      const body = {
+        title: 'Midterm demo',
+        dueDate: day(addWeeks(thisWeek, 1)),
+      };
       await server().post(url()).set(as('student')).send(body).expect(403);
       await server().post(url()).set(as('outsider')).send(body).expect(403);
       await server()
