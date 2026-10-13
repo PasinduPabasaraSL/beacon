@@ -122,7 +122,7 @@ export function CoverFace({ book }: { book: RecordBook }) {
       </div>
       <div className="relative flex flex-col items-center gap-5">
         <LogoMark className="size-14 rounded-xl shadow-lg ring-1 ring-[#e9c77b]/40" />
-        <p className="text-[32px] leading-tight font-bold tracking-[0.08em] uppercase drop-shadow">
+        <p className="text-[32px] leading-tight font-bold tracking-[0.08em] uppercase [text-shadow:0_2px_6px_rgba(0,0,0,0.45)]">
           Supervisor
           <br />
           meeting
