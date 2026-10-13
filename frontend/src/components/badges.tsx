@@ -10,16 +10,16 @@ import {
   MILESTONE_STATUS_STYLES,
   PRIORITY_LABELS,
   PRIORITY_STYLES,
-  REVIEW_LABELS,
-  REVIEW_STYLES,
+  TIMESHEET_STATUS_LABELS,
+  TIMESHEET_STATUS_STYLES,
 } from '@/lib/format'
 import type {
-  ContributionReviewStatus,
   ContributionType,
   MeetingMode,
   MeetingRecordStatus,
   MilestoneStatus,
   TaskPriority,
+  TimesheetStatus,
 } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -73,10 +73,10 @@ export function MeetingModeBadge({ mode }: { mode: MeetingMode }) {
   )
 }
 
-export function ReviewBadge({ status }: { status: ContributionReviewStatus }) {
+export function TimesheetStatusBadge({ status }: { status: TimesheetStatus }) {
   return (
-    <Badge variant="outline" className={REVIEW_STYLES[status]}>
-      {REVIEW_LABELS[status]}
+    <Badge variant="outline" className={TIMESHEET_STATUS_STYLES[status]}>
+      {TIMESHEET_STATUS_LABELS[status]}
     </Badge>
   )
 }

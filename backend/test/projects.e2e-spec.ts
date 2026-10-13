@@ -11,10 +11,10 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { addWeeks, startOfIsoWeek } from '../src/common/week';
-import { ContributionsService } from '../src/contributions/contributions.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { DashboardService } from '../src/projects/dashboard.service';
 import { ProjectsService } from '../src/projects/projects.service';
+import { TimesheetsService } from '../src/timesheets/timesheets.service';
 
 /** Response bodies as JSON: dates arrive as ISO strings. */
 type Json<T> = T extends Date
@@ -28,11 +28,9 @@ type Json<T> = T extends Date
 type ProjectList = Json<Awaited<ReturnType<ProjectsService['list']>>>;
 type Board = Json<Awaited<ReturnType<ProjectsService['board']>>>;
 type Dashboard = Json<Awaited<ReturnType<DashboardService['get']>>>;
-type Contributions = Json<
-  Awaited<ReturnType<ContributionsService['listForWeek']>>
->;
+type Timesheets = Json<Awaited<ReturnType<TimesheetsService['week']>>>;
 
-describe('Projects, board, dashboard and contributions (e2e)', () => {
+describe('Projects, board, dashboard and timesheets (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
 
@@ -137,26 +135,35 @@ describe('Projects, board, dashboard and contributions (e2e)', () => {
       data: { blockingTaskId: blocker.id, blockedTaskId: blocked.id },
     });
 
-    await prisma.contributionEntry.createMany({
-      data: [
-        {
-          projectId,
-          userId: student.id,
-          weekStart: thisWeek,
-          hours: 2.5,
-          type: ContributionType.DEVELOPMENT,
-          taskId: blocker.id,
-          description: 'Worked on the blocker',
+    await prisma.timesheet.create({
+      data: {
+        projectId,
+        userId: student.id,
+        weekStart: thisWeek,
+        entries: {
+          create: {
+            hours: 2.5,
+            type: ContributionType.DEVELOPMENT,
+            taskId: blocker.id,
+            days: { create: { date: thisWeek, hours: 2.5 } },
+          },
         },
-        {
-          projectId,
-          userId: student.id,
-          weekStart: addWeeks(thisWeek, -1),
-          hours: 1,
-          type: ContributionType.MEETING,
-          description: 'Planning',
+      },
+    });
+    await prisma.timesheet.create({
+      data: {
+        projectId,
+        userId: student.id,
+        weekStart: addWeeks(thisWeek, -1),
+        entries: {
+          create: {
+            hours: 1,
+            type: ContributionType.MEETING,
+            description: 'Planning',
+            days: { create: { date: addWeeks(thisWeek, -1), hours: 1 } },
+          },
         },
-      ],
+      },
     });
   });
 
@@ -219,27 +226,38 @@ describe('Projects, board, dashboard and contributions (e2e)', () => {
     });
   });
 
-  it('lists contributions for a given week with per-member totals', async () => {
-    const current = await getJson<Contributions>(
-      `/api/projects/${projectId}/contributions`,
+  it("lists every member's timesheet for a given week", async () => {
+    const current = await getJson<Timesheets>(
+      `/api/projects/${projectId}/timesheets`,
     );
 
     expect(current.weekStart).toBe(thisWeek.toISOString());
+    expect(current.days).toHaveLength(7);
     expect(current.totalHours).toBe(2.5);
-    expect(current.entries).toHaveLength(1);
-    expect(current.entries[0]).toMatchObject({
-      hours: 2.5,
-      task: { key: 'E2E-1' },
+    const student = current.members.find((m) => m.user.id === userIds[1]);
+    expect(student?.timesheet).toMatchObject({
+      status: 'DRAFT',
+      totalHours: 2.5,
+      dailyHours: [2.5, 0, 0, 0, 0, 0, 0],
+      rows: [
+        {
+          hours: 2.5,
+          task: { key: 'E2E-1' },
+          days: [{ date: current.days[0], hours: 2.5, note: null }],
+        },
+      ],
     });
+    const lead = current.members.find((m) => m.user.id === userIds[0]);
+    expect(lead?.timesheet).toMatchObject({ id: null, rows: [] });
 
     const lastWeek = addWeeks(thisWeek, -1).toISOString().slice(0, 10);
-    const previous = await getJson<Contributions>(
-      `/api/projects/${projectId}/contributions?week=${lastWeek}`,
+    const previous = await getJson<Timesheets>(
+      `/api/projects/${projectId}/timesheets?week=${lastWeek}`,
     );
     expect(previous.totalHours).toBe(1);
 
     await api()
-      .get(`/api/projects/${projectId}/contributions?week=yesterday`)
+      .get(`/api/projects/${projectId}/timesheets?week=yesterday`)
       .expect(400);
   });
 });

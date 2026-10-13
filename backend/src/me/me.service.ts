@@ -4,10 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  ContributionReviewStatus,
   MeetingRecordStatus,
   ProjectRole,
   StatusCategory,
+  TimesheetStatus,
 } from '@prisma/client';
 import { LOGGING_ROLES, REVIEWER_ROLES } from '../common/roles';
 import {
@@ -16,13 +16,8 @@ import {
   toSemesterResponse,
 } from '../common/semester';
 import { assertSignatureImage } from '../common/signature-image';
-import { UserSummary } from '../common/user-summary';
+import { UserSummary, userSummarySelect } from '../common/user-summary';
 import { addWeeks, startOfIsoWeek } from '../common/week';
-import {
-  entrySelect,
-  round2,
-  toEntryResponse,
-} from '../contributions/entry-response';
 import {
   milestoneSelect,
   toMilestoneResponse,
@@ -32,6 +27,11 @@ import {
   meetingSelect,
   toMeetingResponse,
 } from '../record-book/meeting-response';
+import {
+  round2,
+  timesheetSelect,
+  toTimesheetResponse,
+} from '../timesheets/timesheet-response';
 import { SaveSignatureDto } from './dto/save-signature.dto';
 
 const UPCOMING_MILESTONE_LIMIT = 5;
@@ -40,8 +40,9 @@ const signatureSelect = { image: true, method: true, updatedAt: true } as const;
 
 const projectSummarySelect = { id: true, key: true, name: true } as const;
 
-const entryWithProjectSelect = {
-  ...entrySelect,
+const timesheetWithProjectSelect = {
+  ...timesheetSelect,
+  user: { select: userSummarySelect },
   project: { select: projectSummarySelect },
 } as const;
 
@@ -82,11 +83,15 @@ export class MeService {
       .filter((m) => REVIEWER_ROLES.includes(m.role))
       .map((m) => m.project.id);
 
-    const [weekEntries, tasks, changesRequested, milestones, pendingReviews] =
+    const [weekSheets, tasks, changesRequested, milestones, pendingReviews] =
       await Promise.all([
-        this.prisma.contributionEntry.findMany({
+        this.prisma.timesheet.findMany({
           where: { userId: user.id, weekStart, projectId: { in: projectIds } },
-          select: { projectId: true, hours: true },
+          select: {
+            projectId: true,
+            status: true,
+            entries: { select: { hours: true } },
+          },
         }),
         this.prisma.task.findMany({
           where: {
@@ -119,14 +124,14 @@ export class MeService {
             },
           },
         }),
-        this.prisma.contributionEntry.findMany({
+        this.prisma.timesheet.findMany({
           where: {
             userId: user.id,
             projectId: { in: projectIds },
-            reviewStatus: ContributionReviewStatus.CHANGES_REQUESTED,
+            status: TimesheetStatus.CHANGES_REQUESTED,
           },
-          orderBy: [{ weekStart: 'desc' }, { createdAt: 'asc' }],
-          select: entryWithProjectSelect,
+          orderBy: { weekStart: 'desc' },
+          select: timesheetWithProjectSelect,
         }),
         this.prisma.milestone.findMany({
           where: { projectId: { in: projectIds } },
@@ -136,18 +141,26 @@ export class MeService {
             project: { select: projectSummarySelect },
           },
         }),
-        this.prisma.contributionEntry.count({
+        this.prisma.timesheet.count({
           where: {
             projectId: { in: reviewProjectIds },
-            reviewStatus: ContributionReviewStatus.PENDING,
+            status: TimesheetStatus.SUBMITTED,
             userId: { not: user.id },
           },
         }),
       ]);
 
+    const semesterOf = (projectId: string) => {
+      const membership = memberships.find((m) => m.project.id === projectId);
+      return membership
+        ? toSemesterResponse(membership.project.workspace, now)
+        : null;
+    };
+
     const projects = memberships.map(({ role, project }) => {
-      const own = weekEntries.filter((e) => e.projectId === project.id);
-      const semester = toSemesterResponse(project.workspace, now);
+      const sheet = weekSheets.find((s) => s.projectId === project.id);
+      const own = sheet?.entries ?? [];
+      const semester = semesterOf(project.id);
       return {
         id: project.id,
         key: project.key,
@@ -156,7 +169,8 @@ export class MeService {
         role,
         canLog: LOGGING_ROLES.includes(role),
         hours: round2(own.reduce((sum, e) => sum + Number(e.hours), 0)),
-        entryCount: own.length,
+        rowCount: own.length,
+        timesheetStatus: sheet?.status ?? TimesheetStatus.DRAFT,
         semesterName: semester?.name ?? null,
         teachingWeeks: semester?.teachingWeeks ?? null,
         academicWeek: academicWeekOf(semester, weekStart),
@@ -180,9 +194,13 @@ export class MeService {
           .filter((d) => d.blockingTask.status.category !== StatusCategory.DONE)
           .map((d) => `${task.project.key}-${d.blockingTask.number}`),
       })),
-      changesRequested: changesRequested.map((entry) => ({
-        ...toEntryResponse(entry, entry.project.key),
-        project: entry.project,
+      changesRequested: changesRequested.map((timesheet) => ({
+        ...toTimesheetResponse(timesheet, timesheet.project.key),
+        project: timesheet.project,
+        academicWeek: academicWeekOf(
+          semesterOf(timesheet.project.id),
+          timesheet.weekStart,
+        ),
       })),
       milestones: milestones
         .map((m) => ({
@@ -199,14 +217,14 @@ export class MeService {
     const memberships = (await this.projectMemberships(user.id)).filter((m) =>
       REVIEWER_ROLES.includes(m.role),
     );
-    const entries = await this.prisma.contributionEntry.findMany({
+    const timesheets = await this.prisma.timesheet.findMany({
       where: {
         projectId: { in: memberships.map((m) => m.project.id) },
-        reviewStatus: ContributionReviewStatus.PENDING,
+        status: TimesheetStatus.SUBMITTED,
         userId: { not: user.id },
       },
-      orderBy: [{ weekStart: 'asc' }, { createdAt: 'asc' }],
-      select: { ...entryWithProjectSelect, projectId: true },
+      orderBy: [{ weekStart: 'asc' }, { submittedAt: 'asc' }],
+      select: timesheetWithProjectSelect,
     });
 
     const supervisedProjectIds = memberships
@@ -236,12 +254,14 @@ export class MeService {
         role,
         teachingWeeks: semesters.get(project.id)?.teachingWeeks ?? null,
       })),
-      entries: entries.map(({ projectId, ...entry }) => ({
-        ...toEntryResponse(entry, entry.project.key),
-        project: entry.project,
+      timesheets: timesheets.map((timesheet) => ({
+        ...toTimesheetResponse(timesheet, timesheet.project.key),
+        user: timesheet.user,
+        submittedAt: timesheet.submittedAt,
+        project: timesheet.project,
         academicWeek: academicWeekOf(
-          semesters.get(projectId) ?? null,
-          entry.weekStart,
+          semesters.get(timesheet.project.id) ?? null,
+          timesheet.weekStart,
         ),
       })),
       meetings: meetings.map(({ project, ...meeting }) => ({
@@ -251,9 +271,9 @@ export class MeService {
     };
   }
 
-  async approve(user: UserSummary, entryIds: string[]) {
-    const entries = await this.prisma.contributionEntry.findMany({
-      where: { id: { in: entryIds } },
+  async approve(user: UserSummary, timesheetIds: string[]) {
+    const timesheets = await this.prisma.timesheet.findMany({
+      where: { id: { in: timesheetIds } },
       select: {
         id: true,
         userId: true,
@@ -264,28 +284,26 @@ export class MeService {
         },
       },
     });
-    if (entries.length !== entryIds.length) {
-      throw new NotFoundException('Some contributions no longer exist');
+    if (timesheets.length !== timesheetIds.length) {
+      throw new NotFoundException('Some timesheets no longer exist');
     }
-    for (const entry of entries) {
-      const role = entry.project.members[0]?.role;
+    for (const timesheet of timesheets) {
+      const role = timesheet.project.members[0]?.role;
       if (!role || !REVIEWER_ROLES.includes(role)) {
         throw new ForbiddenException(
-          'Only supervisors and project owners can review contributions',
+          'Only supervisors and project owners can review timesheets',
         );
       }
-      if (entry.userId === user.id) {
-        throw new ForbiddenException('You cannot review your own contribution');
+      if (timesheet.userId === user.id) {
+        throw new ForbiddenException('You cannot review your own timesheet');
       }
     }
 
-    const { count } = await this.prisma.contributionEntry.updateMany({
-      where: {
-        id: { in: entryIds },
-        reviewStatus: { not: ContributionReviewStatus.APPROVED },
-      },
+    // Weeks recalled or already decided since the queue loaded are left alone.
+    const { count } = await this.prisma.timesheet.updateMany({
+      where: { id: { in: timesheetIds }, status: TimesheetStatus.SUBMITTED },
       data: {
-        reviewStatus: ContributionReviewStatus.APPROVED,
+        status: TimesheetStatus.APPROVED,
         reviewComment: null,
         reviewedById: user.id,
         reviewedAt: new Date(),

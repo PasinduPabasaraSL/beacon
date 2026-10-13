@@ -56,8 +56,10 @@ enum ContributionType {
   OTHER
 }
 
-enum ContributionReviewStatus {
-  PENDING
+/// DRAFT: still being filled in. SUBMITTED: waiting for a reviewer. APPROVED: locked.
+enum TimesheetStatus {
+  DRAFT
+  SUBMITTED
   APPROVED
   CHANGES_REQUESTED
 }
@@ -114,8 +116,8 @@ model User {
   projectMemberships    ProjectMember[]
   taskAssignments       TaskAssignee[]
   reportedTasks         Task[]                @relation("TaskReporter")
-  contributions         ContributionEntry[]   @relation("ContributionAuthor")
-  reviewedContributions ContributionEntry[]   @relation("ContributionReviewer")
+  timesheets            Timesheet[]           @relation("TimesheetAuthor")
+  reviewedTimesheets    Timesheet[]           @relation("TimesheetReviewer")
   signature             UserSignature?
   recordBookSignatures  RecordBookSignature[]
   createdMeetings       MeetingRecord[]       @relation("MeetingCreator")
@@ -210,7 +212,7 @@ model Project {
   sprints              Sprint[]
   milestones           Milestone[]
   tasks                Task[]
-  contributions        ContributionEntry[]
+  timesheets           Timesheet[]
   recordBook           RecordBook?
   recordBookSignatures RecordBookSignature[]
   meetings             MeetingRecord[]
@@ -362,33 +364,67 @@ model TaskDependency {
 // Contributions
 // ---------------------------------------------------------------------------
 
-/// Self-reported weekly work. Hours are entered by the student, never derived from GitHub activity.
-model ContributionEntry {
-  id            String                   @id @default(uuid(7)) @db.Uuid
-  projectId     String                   @map("project_id") @db.Uuid
-  userId        String                   @map("user_id") @db.Uuid
-  /// Monday of the ISO week the work belongs to.
-  weekStart     DateTime                 @map("week_start") @db.Date
-  hours         Decimal                  @db.Decimal(5, 2)
-  type          ContributionType
-  taskId        String?                  @map("task_id") @db.Uuid
-  description   String
-  reviewStatus  ContributionReviewStatus @default(PENDING) @map("review_status")
-  reviewedById  String?                  @map("reviewed_by_id") @db.Uuid
-  reviewedAt    DateTime?                @map("reviewed_at")
-  reviewComment String?                  @map("review_comment")
-  createdAt     DateTime                 @default(now()) @map("created_at")
-  updatedAt     DateTime                 @updatedAt @map("updated_at")
+/// One member's week in one project. Hours are self-reported, never derived from GitHub activity,
+/// and the whole week is submitted and reviewed together.
+model Timesheet {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  projectId     String          @map("project_id") @db.Uuid
+  userId        String          @map("user_id") @db.Uuid
+  /// Monday of the ISO week.
+  weekStart     DateTime        @map("week_start") @db.Date
+  status        TimesheetStatus @default(DRAFT)
+  submittedAt   DateTime?       @map("submitted_at")
+  reviewedById  String?         @map("reviewed_by_id") @db.Uuid
+  reviewedAt    DateTime?       @map("reviewed_at")
+  reviewComment String?         @map("review_comment")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
 
-  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user       User    @relation("ContributionAuthor", fields: [userId], references: [id], onDelete: Restrict)
-  task       Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  reviewedBy User?   @relation("ContributionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  project    Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User                @relation("TimesheetAuthor", fields: [userId], references: [id], onDelete: Restrict)
+  reviewedBy User?               @relation("TimesheetReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  entries    ContributionEntry[]
 
+  @@unique([projectId, userId, weekStart])
   @@index([projectId, weekStart])
   @@index([userId, weekStart])
+  @@index([status])
+  @@map("timesheets")
+}
+
+/// A timesheet row: a work type and optionally a task, with hours per day.
+model ContributionEntry {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  timesheetId    String           @map("timesheet_id") @db.Uuid
+  /// Sum of the row's days, kept in sync by the API.
+  hours          Decimal          @default(0) @db.Decimal(5, 2)
+  type           ContributionType
+  taskId         String?          @map("task_id") @db.Uuid
+  description    String           @default("")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  timesheet Timesheet         @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+  task      Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  days      ContributionDay[]
+
+  @@index([timesheetId])
   @@index([taskId])
   @@map("contribution_entries")
+}
+
+/// Hours on one day of a timesheet row. The date must fall in the row's week (enforced in the API).
+model ContributionDay {
+  entryId   String   @map("entry_id") @db.Uuid
+  date      DateTime @db.Date
+  hours     Decimal  @db.Decimal(4, 2)
+  note      String?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  entry ContributionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, date])
+  @@map("contribution_days")
 }
 
 // ---------------------------------------------------------------------------

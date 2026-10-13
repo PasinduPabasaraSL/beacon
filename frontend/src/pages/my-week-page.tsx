@@ -2,11 +2,10 @@ import { ArrowRight, ClipboardCheck, Lock, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import {
-  ContributionTypeBadge,
   MilestoneStatusBadge,
   PriorityBadge,
+  TimesheetStatusBadge,
 } from '@/components/badges'
-import { ContributionFormDialog } from '@/components/contributions/contribution-form-dialog'
 import { PageHeader } from '@/components/page-header'
 import { EmptyState, ErrorState } from '@/components/query-state'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +19,7 @@ import {
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LogTimeDialog } from '@/components/timesheet/log-time-dialog'
 import { useMyWeek } from '@/hooks/queries'
 import { useActingUserId } from '@/lib/acting-user'
 import {
@@ -30,9 +30,9 @@ import {
   formatDueIn,
   formatHours,
   formatWeekRange,
-  REVIEW_STYLES,
+  TIMESHEET_STATUS_STYLES,
 } from '@/lib/format'
-import type { ContributionWithProject, MyWeek } from '@/lib/types'
+import type { MyWeek, TimesheetWithProject } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 type WeekProject = MyWeek['projects'][number]
@@ -48,7 +48,7 @@ function CheckInCard({
 }) {
   const week = project.academicWeek
   const isBreak = !!week && week.kind !== 'TEACHING'
-  const logged = project.entryCount > 0
+  const logged = project.hours > 0
 
   return (
     <Card className="gap-4">
@@ -75,78 +75,88 @@ function CheckInCard({
           </p>
           <p className="text-muted-foreground text-xs">
             {logged
-              ? `${project.entryCount} ${project.entryCount === 1 ? 'entry' : 'entries'} this week`
+              ? `${project.rowCount} ${project.rowCount === 1 ? 'row' : 'rows'} this week`
               : isBreak
                 ? 'Break week, logging is optional'
                 : 'Not logged yet'}
           </p>
         </div>
-        <Button
-          variant={primary ? 'default' : 'outline'}
-          size="sm"
-          onClick={onLog}
-        >
-          <Plus /> Log hours
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          <TimesheetStatusBadge status={project.timesheetStatus} />
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`/projects/${project.id}/contributions`}>
+                Timesheet
+              </Link>
+            </Button>
+            <Button
+              variant={primary ? 'default' : 'outline'}
+              size="sm"
+              onClick={onLog}
+            >
+              <Plus /> Log time
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
 }
 
 function ChangesRequested({
-  entries,
-  onEdit,
+  timesheets,
 }: {
-  entries: ContributionWithProject[]
-  onEdit: (entry: ContributionWithProject) => void
+  timesheets: TimesheetWithProject[]
 }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Needs your changes</CardTitle>
         <CardDescription>
-          A reviewer asked you to update these entries. Saving sends them back
-          for review.
+          A reviewer sent these weeks back. Update the hours, then submit the
+          week again.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ul className="divide-y">
-          {entries.map((entry) => (
+          {timesheets.map((timesheet) => (
             <li
-              key={entry.id}
+              key={timesheet.id}
               className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start"
             >
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
                   <Badge variant="secondary" className="font-mono">
-                    {entry.project.key}
+                    {timesheet.project.key}
                   </Badge>
-                  {formatWeekRange(entry.weekStart)}
-                  <ContributionTypeBadge type={entry.type} />
+                  {formatWeekRange(timesheet.weekStart)}
                   <span className="text-foreground font-medium tabular-nums">
-                    {formatHours(entry.hours)}
+                    {formatHours(timesheet.totalHours)}
                   </span>
                 </div>
-                <p className="text-sm">{entry.description}</p>
-                {entry.reviewComment && (
+                {timesheet.reviewComment && (
                   <p
                     className={cn(
                       'rounded-md border px-3 py-2 text-sm',
-                      REVIEW_STYLES.CHANGES_REQUESTED,
+                      TIMESHEET_STATUS_STYLES.CHANGES_REQUESTED,
                     )}
                   >
                     <span className="font-medium">
-                      {entry.reviewedBy
-                        ? displayName(entry.reviewedBy)
+                      {timesheet.reviewedBy
+                        ? displayName(timesheet.reviewedBy)
                         : 'Reviewer'}
                       :{' '}
                     </span>
-                    {entry.reviewComment}
+                    {timesheet.reviewComment}
                   </p>
                 )}
               </div>
-              <Button variant="outline" size="sm" onClick={() => onEdit(entry)}>
-                Edit entry
+              <Button variant="outline" size="sm" asChild>
+                <Link
+                  to={`/projects/${timesheet.project.id}/contributions?week=${timesheet.weekStart.slice(0, 10)}`}
+                >
+                  Open timesheet <ArrowRight />
+                </Link>
               </Button>
             </li>
           ))}
@@ -274,7 +284,6 @@ export function MyWeekPage() {
   const actingUserId = useActingUserId()
   const { data, error, isPending, refetch } = useMyWeek()
   const [logProjectId, setLogProjectId] = useState<string | null>(null)
-  const [editing, setEditing] = useState<ContributionWithProject | null>(null)
 
   if (!actingUserId) {
     return (
@@ -302,10 +311,9 @@ export function MyWeekPage() {
 
   const loggable = data.projects.filter((p) => p.canLog)
   const firstToLog = loggable.find(
-    (p) => p.entryCount === 0 && p.academicWeek?.kind !== 'BREAK',
+    (p) => p.hours === 0 && p.academicWeek?.kind !== 'BREAK',
   )
   const headline = data.projects.find((p) => p.academicWeek)
-  const weekStart = data.weekStart.slice(0, 10)
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -343,8 +351,8 @@ export function MyWeekPage() {
             <ClipboardCheck className="text-muted-foreground size-4" />
             <p className="flex-1 text-sm">
               {data.pendingReviews}{' '}
-              {data.pendingReviews === 1 ? 'entry is' : 'entries are'} waiting
-              for your review.
+              {data.pendingReviews === 1 ? 'timesheet is' : 'timesheets are'}{' '}
+              waiting for your review.
             </p>
             <Button variant="outline" size="sm" asChild>
               <Link to="/reviews">
@@ -374,7 +382,7 @@ export function MyWeekPage() {
       )}
 
       {data.changesRequested.length > 0 && (
-        <ChangesRequested entries={data.changesRequested} onEdit={setEditing} />
+        <ChangesRequested timesheets={data.changesRequested} />
       )}
 
       {data.projects.length === 0 ? (
@@ -390,20 +398,10 @@ export function MyWeekPage() {
       )}
 
       {logProjectId && (
-        <ContributionFormDialog
+        <LogTimeDialog
           projectId={logProjectId}
-          week={weekStart}
           open
           onOpenChange={(open) => !open && setLogProjectId(null)}
-        />
-      )}
-      {editing && (
-        <ContributionFormDialog
-          projectId={editing.project.id}
-          week={editing.weekStart.slice(0, 10)}
-          entry={editing}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
         />
       )}
     </div>

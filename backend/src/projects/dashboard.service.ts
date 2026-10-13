@@ -60,7 +60,7 @@ export class DashboardService {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
 
-    const [tasks, entries] = await Promise.all([
+    const [tasks, rows] = await Promise.all([
       this.prisma.task.findMany({
         where: { projectId },
         select: {
@@ -74,10 +74,20 @@ export class DashboardService {
         },
       }),
       this.prisma.contributionEntry.findMany({
-        where: { projectId, weekStart: { gte: trendStart } },
-        select: { userId: true, weekStart: true, hours: true, type: true },
+        where: { timesheet: { projectId, weekStart: { gte: trendStart } } },
+        select: {
+          hours: true,
+          type: true,
+          timesheet: { select: { userId: true, weekStart: true } },
+        },
       }),
     ]);
+    const entries = rows.map((row) => ({
+      userId: row.timesheet.userId,
+      weekStart: row.timesheet.weekStart,
+      hours: row.hours,
+      type: row.type,
+    }));
 
     const byCategory = emptyCategoryCounts();
     for (const task of tasks) byCategory[task.status.category] += 1;

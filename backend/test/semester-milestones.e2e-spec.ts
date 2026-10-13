@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
-  ContributionReviewStatus,
   ContributionType,
   ProjectRole,
   StatusCategory,
+  TimesheetStatus,
   WorkspaceRole,
 } from '@prisma/client';
 import request from 'supertest';
@@ -41,7 +41,7 @@ interface MilestoneBody {
   tasks: { key: string; done: boolean }[];
 }
 interface ReviewQueueBody {
-  entries: { id: string; user: { id: string }; project: { key: string } }[];
+  timesheets: { id: string; user: { id: string }; project: { key: string } }[];
 }
 
 const PEOPLE = ['lecturer', 'lead', 'student', 'outsider'] as const;
@@ -308,39 +308,47 @@ describe('Semester, milestones and personal views (e2e)', () => {
   });
 
   describe('personal views', () => {
-    let studentEntryId: string;
-    let leadEntryId: string;
-    let otherProjectEntryId: string;
+    let studentSheetId: string;
+    let leadSheetId: string;
+    let otherProjectSheetId: string;
 
     beforeAll(async () => {
-      const entry = (
+      const sheet = (
         userId: string,
         project: string,
-        reviewStatus?: ContributionReviewStatus,
-      ) =>
-        prisma.contributionEntry.create({
+        status: TimesheetStatus = TimesheetStatus.SUBMITTED,
+        weekStart = thisWeek,
+      ) => {
+        const decided = status === TimesheetStatus.CHANGES_REQUESTED;
+        return prisma.timesheet.create({
           data: {
             projectId: project,
             userId,
-            weekStart: thisWeek,
-            hours: 2,
-            type: ContributionType.DEVELOPMENT,
-            description: 'Work',
-            reviewStatus,
-            reviewComment:
-              reviewStatus === ContributionReviewStatus.CHANGES_REQUESTED
-                ? 'Add detail'
-                : null,
+            weekStart,
+            status,
+            submittedAt: new Date(),
+            reviewedAt: decided ? new Date() : null,
+            reviewComment: decided ? 'Add detail' : null,
+            entries: {
+              create: {
+                hours: 2,
+                type: ContributionType.DEVELOPMENT,
+                description: 'Work',
+                days: { create: { date: weekStart, hours: 2 } },
+              },
+            },
           },
         });
-      studentEntryId = (await entry(users.student, projectId)).id;
-      await entry(
+      };
+      studentSheetId = (await sheet(users.student, projectId)).id;
+      await sheet(
         users.student,
         projectId,
-        ContributionReviewStatus.CHANGES_REQUESTED,
+        TimesheetStatus.CHANGES_REQUESTED,
+        addWeeks(thisWeek, -1),
       );
-      leadEntryId = (await entry(users.lead, projectId)).id;
-      otherProjectEntryId = (await entry(users.lead, otherProjectId)).id;
+      leadSheetId = (await sheet(users.lead, projectId)).id;
+      otherProjectSheetId = (await sheet(users.lead, otherProjectId)).id;
     });
 
     it('requires an acting user', async () => {
@@ -372,7 +380,7 @@ describe('Semester, milestones and personal views (e2e)', () => {
         changesRequested: { reviewComment: string; project: { key: string } }[];
       }>;
 
-      expect(body.totalHours).toBe(4);
+      expect(body.totalHours).toBe(2);
       expect(body.projects).toEqual([
         expect.objectContaining({
           key: 'GRPA',
@@ -388,43 +396,45 @@ describe('Semester, milestones and personal views (e2e)', () => {
       ]);
     });
 
-    it('queues pending entries from supervised projects only', async () => {
+    it('queues submitted weeks from supervised projects only', async () => {
       const response = await server()
         .get('/api/me/reviews')
         .set(as('lecturer'))
         .expect(200);
-      const ids = (response.body as ReviewQueueBody).entries.map((e) => e.id);
+      const ids = (response.body as ReviewQueueBody).timesheets.map(
+        (t) => t.id,
+      );
 
       expect(ids).toEqual(
-        expect.arrayContaining([studentEntryId, leadEntryId]),
+        expect.arrayContaining([studentSheetId, leadSheetId]),
       );
-      expect(ids).not.toContain(otherProjectEntryId);
+      expect(ids).not.toContain(otherProjectSheetId);
     });
 
     it('rejects bulk approval the reviewer is not allowed to make', async () => {
-      const approve = (person: Person, entryIds: string[]) =>
+      const approve = (person: Person, timesheetIds: string[]) =>
         server()
           .post('/api/me/reviews/approve')
           .set(as(person))
-          .send({ entryIds });
+          .send({ timesheetIds });
 
-      await approve('student', [leadEntryId]).expect(403);
-      await approve('lead', [leadEntryId]).expect(403);
-      await approve('lecturer', [otherProjectEntryId]).expect(403);
-      await approve('lecturer', [studentEntryId, randomUUID()]).expect(404);
+      await approve('student', [leadSheetId]).expect(403);
+      await approve('lead', [leadSheetId]).expect(403);
+      await approve('lecturer', [otherProjectSheetId]).expect(403);
+      await approve('lecturer', [studentSheetId, randomUUID()]).expect(404);
       await approve('lecturer', []).expect(400);
     });
 
-    it('approves several entries at once', async () => {
+    it('approves several weeks at once', async () => {
       const response = await server()
         .post('/api/me/reviews/approve')
         .set(as('lecturer'))
-        .send({ entryIds: [studentEntryId, leadEntryId] })
+        .send({ timesheetIds: [studentSheetId, leadSheetId] })
         .expect(200);
       expect(response.body).toEqual({ approved: 2 });
 
       const queue = await server().get('/api/me/reviews').set(as('lecturer'));
-      expect((queue.body as ReviewQueueBody).entries).toHaveLength(0);
+      expect((queue.body as ReviewQueueBody).timesheets).toHaveLength(0);
     });
   });
 });

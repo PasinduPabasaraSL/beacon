@@ -12,8 +12,8 @@ export type SprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED'
 export type ContributionType =
   'DEVELOPMENT' | 'TESTING' | 'RESEARCH' | 'DOCUMENTATION' | 'MEETING' | 'OTHER'
 
-export type ContributionReviewStatus =
-  'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED'
+export type TimesheetStatus =
+  'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED'
 
 export interface UserSummary {
   id: string
@@ -127,33 +127,69 @@ export interface ProjectDashboard {
   }[]
 }
 
-export interface ContributionEntry {
-  id: string
-  weekStart: string
+export interface TimesheetDay {
+  /** YYYY-MM-DD */
+  date: string
   hours: number
-  type: ContributionType
-  description: string
-  reviewStatus: ContributionReviewStatus
-  reviewComment: string | null
-  reviewedAt: string | null
-  createdAt: string
-  updatedAt: string
-  user: UserSummary
-  reviewedBy: UserSummary | null
-  task: { id: string; key: string; title: string } | null
+  note: string | null
 }
 
-export interface ContributionInput {
-  /** Any date in the week (YYYY-MM-DD). */
-  week: string
+/** A timesheet row: a work type and optionally a task, with hours per day. */
+export interface TimesheetRow {
+  id: string
+  type: ContributionType
+  description: string
   hours: number
+  task: { id: string; key: string; title: string } | null
+  days: TimesheetDay[]
+}
+
+/** One member's week. `id` is null until they add a row. */
+export interface Timesheet {
+  id: string | null
+  weekStart: string
+  status: TimesheetStatus
+  submittedAt: string | null
+  reviewedAt: string | null
+  reviewedBy: UserSummary | null
+  reviewComment: string | null
+  totalHours: number
+  /** Monday to Sunday. */
+  dailyHours: number[]
+  rows: TimesheetRow[]
+}
+
+export interface TimesheetWeek {
+  weekStart: string
+  weekEnd: string
+  /** YYYY-MM-DD, Monday to Sunday. */
+  days: string[]
+  totalHours: number
+  members: {
+    user: UserSummary
+    role: ProjectRole
+    canLog: boolean
+    timesheet: Timesheet
+  }[]
+}
+
+export interface RowInput {
   type: ContributionType
   taskId: string | null
   description: string
 }
 
-export interface ContributionReviewInput {
-  status: Exclude<ContributionReviewStatus, 'PENDING'>
+export interface LogTimeInput {
+  /** YYYY-MM-DD */
+  date: string
+  hours: number
+  type: ContributionType
+  taskId: string | null
+  note: string
+}
+
+export interface TimesheetReviewInput {
+  status: 'APPROVED' | 'CHANGES_REQUESTED'
   comment?: string
 }
 
@@ -231,8 +267,10 @@ export interface Me {
   canReview: boolean
 }
 
-export type ContributionWithProject = ContributionEntry & {
+export type TimesheetWithProject = Timesheet & {
+  id: string
   project: ProjectRef
+  academicWeek: AcademicWeek | null
 }
 
 export interface MyWeek {
@@ -244,7 +282,8 @@ export interface MyWeek {
     role: ProjectRole
     canLog: boolean
     hours: number
-    entryCount: number
+    rowCount: number
+    timesheetStatus: TimesheetStatus
     semesterName: string | null
     teachingWeeks: number | null
     academicWeek: AcademicWeek | null
@@ -259,7 +298,8 @@ export interface MyWeek {
     status: { name: string; category: StatusCategory }
     openBlockers: string[]
   }[]
-  changesRequested: ContributionWithProject[]
+  /** The acting user's weeks sent back by a reviewer. */
+  changesRequested: TimesheetWithProject[]
   milestones: (Milestone & { project: ProjectRef })[]
   pendingReviews: number
 }
@@ -269,7 +309,8 @@ export interface ReviewQueue {
     role: ProjectRole
     teachingWeeks: number | null
   })[]
-  entries: (ContributionWithProject & { academicWeek: AcademicWeek | null })[]
+  /** Submitted weeks waiting for the acting reviewer. */
+  timesheets: (TimesheetWithProject & { user: UserSummary })[]
   /** Record book entries waiting for the acting supervisor. */
   meetings: (MeetingRecord & { project: ProjectRef })[]
 }
@@ -350,17 +391,4 @@ export interface MeetingInput {
 export interface MeetingReviewInput {
   decision: 'CERTIFIED' | 'CHANGES_REQUESTED'
   comment?: string
-}
-
-export interface WeeklyContributions {
-  weekStart: string
-  weekEnd: string
-  totalHours: number
-  members: {
-    user: UserSummary
-    role: ProjectRole
-    entryCount: number
-    hours: number
-  }[]
-  entries: ContributionEntry[]
 }

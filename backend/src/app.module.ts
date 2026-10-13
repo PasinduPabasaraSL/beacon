@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
-import { ContributionsModule } from './contributions/contributions.module';
+import { TimesheetsModule } from './timesheets/timesheets.module';
 import { DevModule } from './dev/dev.module';
 import { HealthModule } from './health/health.module';
 import { MeModule } from './me/me.module';
@@ -22,7 +22,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     PrismaModule,
     HealthModule,
     ProjectsModule,
-    ContributionsModule,
+    TimesheetsModule,
     MilestonesModule,
     RecordBookModule,
     WorkspacesModule,

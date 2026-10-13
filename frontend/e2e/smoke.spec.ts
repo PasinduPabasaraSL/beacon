@@ -25,9 +25,10 @@ test('project pages render for the seeded demo project', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'In Progress' })).toBeVisible()
   await expect(page.getByText('Blocked by BCN-3')).toBeVisible()
 
-  await page.getByRole('link', { name: 'Contributions', exact: true }).click()
-  await expect(page.getByText('This week', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Timesheet', exact: true }).click()
+  await expect(page.getByText('Daily total')).toBeVisible()
   await page.getByRole('button', { name: 'Previous week' }).click()
+  await page.getByRole('tab', { name: 'Time log' }).click()
   await expect(
     page.getByText('Sprint planning meeting with the team.'),
   ).toBeVisible()

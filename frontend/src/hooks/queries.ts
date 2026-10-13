@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useActingUserId } from '@/lib/acting-user'
 import { apiFetch } from '@/lib/api'
+import { shiftWeek } from '@/lib/format'
 import type {
   Board,
-  ContributionEntry,
-  ContributionInput,
-  ContributionReviewInput,
+  LogTimeInput,
   Me,
   MeetingInput,
   MeetingRecord,
@@ -19,11 +18,15 @@ import type {
   RecordBook,
   RecordBookDetails,
   ReviewQueue,
+  RowInput,
   SemesterInput,
   SignatureMethod,
+  Timesheet,
+  TimesheetReviewInput,
+  TimesheetRow,
+  TimesheetWeek,
   UserSignature,
   UserSummary,
-  WeeklyContributions,
   WorkspaceSemester,
 } from '@/lib/types'
 
@@ -64,12 +67,19 @@ export function useDashboard(projectId: string) {
   })
 }
 
-export function useContributions(projectId: string, week: string) {
+const timesheetsKey = (projectId: string, week: string) => [
+  'projects',
+  projectId,
+  'timesheets',
+  week,
+]
+
+export function useTimesheets(projectId: string, week: string) {
   return useQuery({
-    queryKey: ['projects', projectId, 'contributions', week],
+    queryKey: timesheetsKey(projectId, week),
     queryFn: ({ signal }) =>
-      apiFetch<WeeklyContributions>(
-        `/projects/${projectId}/contributions?week=${week}`,
+      apiFetch<TimesheetWeek>(
+        `/projects/${projectId}/timesheets?week=${week}`,
         { signal },
       ),
     placeholderData: (previous) => previous,
@@ -112,13 +122,13 @@ export function useReviewQueue({ enabled = true } = {}) {
   })
 }
 
-export function useApproveEntries() {
+export function useApproveTimesheets() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (entryIds: string[]) =>
+    mutationFn: (timesheetIds: string[]) =>
       apiFetch<{ approved: number }>('/me/reviews/approve', {
         method: 'POST',
-        body: JSON.stringify({ entryIds }),
+        body: JSON.stringify({ timesheetIds }),
       }),
     onSuccess: () =>
       Promise.all([
@@ -310,11 +320,11 @@ function useInvalidateProject(projectId: string) {
     ])
 }
 
-export function useCreateContribution(projectId: string) {
+export function useAddRow(projectId: string) {
   const invalidate = useInvalidateProject(projectId)
   return useMutation({
-    mutationFn: (input: ContributionInput) =>
-      apiFetch<ContributionEntry>(`/projects/${projectId}/contributions`, {
+    mutationFn: (input: RowInput & { week: string }) =>
+      apiFetch<TimesheetRow>(`/projects/${projectId}/timesheets/rows`, {
         method: 'POST',
         body: JSON.stringify(input),
       }),
@@ -322,43 +332,187 @@ export function useCreateContribution(projectId: string) {
   })
 }
 
-export function useUpdateContribution(projectId: string) {
+/** Adds the rows (not the hours) of the user's previous week to `week`. */
+export function useCopyLastWeek(projectId: string) {
+  const queryClient = useQueryClient()
   const invalidate = useInvalidateProject(projectId)
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: ContributionInput }) =>
-      apiFetch<ContributionEntry>(
-        `/projects/${projectId}/contributions/${id}`,
-        { method: 'PATCH', body: JSON.stringify(input) },
-      ),
+    mutationFn: async ({ week, userId }: { week: string; userId: string }) => {
+      const previous = shiftWeek(week, -1)
+      const data = await queryClient.fetchQuery({
+        queryKey: timesheetsKey(projectId, previous),
+        queryFn: ({ signal }) =>
+          apiFetch<TimesheetWeek>(
+            `/projects/${projectId}/timesheets?week=${previous}`,
+            { signal },
+          ),
+      })
+      const rows =
+        data.members.find((m) => m.user.id === userId)?.timesheet.rows ?? []
+      for (const row of rows) {
+        await apiFetch<TimesheetRow>(`/projects/${projectId}/timesheets/rows`, {
+          method: 'POST',
+          body: JSON.stringify({
+            week,
+            type: row.type,
+            taskId: row.task?.id ?? null,
+            description: row.description,
+          }),
+        })
+      }
+      return rows.length
+    },
+    onSettled: invalidate,
+  })
+}
+
+export function useUpdateRow(projectId: string) {
+  const invalidate = useInvalidateProject(projectId)
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<RowInput> }) =>
+      apiFetch<TimesheetRow>(`/projects/${projectId}/timesheets/rows/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
     onSuccess: invalidate,
   })
 }
 
-export function useDeleteContribution(projectId: string) {
+export function useDeleteRow(projectId: string) {
   const invalidate = useInvalidateProject(projectId)
   return useMutation({
     mutationFn: (id: string) =>
-      apiFetch<null>(`/projects/${projectId}/contributions/${id}`, {
+      apiFetch<null>(`/projects/${projectId}/timesheets/rows/${id}`, {
         method: 'DELETE',
       }),
     onSuccess: invalidate,
   })
 }
 
-export function useReviewContribution(projectId: string) {
+interface DayChange {
+  rowId: string
+  date: string
+  hours: number
+  /** Omit to keep the current note; an empty string clears it. */
+  note?: string
+}
+
+/** Applies a day edit to a cached week so the grid updates before the server answers. */
+function withDayChange(week: TimesheetWeek, change: DayChange): TimesheetWeek {
+  const dayIndex = week.days.indexOf(change.date)
+  return {
+    ...week,
+    members: week.members.map((member) => {
+      const row = member.timesheet.rows.find((r) => r.id === change.rowId)
+      if (!row) return member
+      const previous = row.days.find((d) => d.date === change.date)
+      const note =
+        change.note !== undefined
+          ? change.note || null
+          : (previous?.note ?? null)
+      const days = row.days
+        .filter((d) => d.date !== change.date)
+        .concat(
+          change.hours === 0 && !note
+            ? []
+            : [{ date: change.date, hours: change.hours, note }],
+        )
+        .sort((a, b) => a.date.localeCompare(b.date))
+      const delta = change.hours - (previous?.hours ?? 0)
+      const add = (hours: number) => Math.round((hours + delta) * 100) / 100
+      return {
+        ...member,
+        timesheet: {
+          ...member.timesheet,
+          totalHours: add(member.timesheet.totalHours),
+          dailyHours: member.timesheet.dailyHours.map((h, i) =>
+            i === dayIndex ? add(h) : h,
+          ),
+          rows: member.timesheet.rows.map((r) =>
+            r.id === row.id ? { ...r, days, hours: add(r.hours) } : r,
+          ),
+        },
+      }
+    }),
+  }
+}
+
+export function useSetDay(projectId: string, week: string) {
+  const queryClient = useQueryClient()
+  const invalidate = useInvalidateProject(projectId)
+  const key = timesheetsKey(projectId, week)
+  return useMutation({
+    mutationFn: ({ rowId, date, ...body }: DayChange) =>
+      apiFetch<TimesheetRow>(
+        `/projects/${projectId}/timesheets/rows/${rowId}/days/${date}`,
+        { method: 'PUT', body: JSON.stringify(body) },
+      ),
+    onMutate: async (change) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<TimesheetWeek>(key)
+      if (previous) {
+        queryClient.setQueryData(key, withDayChange(previous, change))
+      }
+      return { previous }
+    },
+    onError: (_error, _change, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous)
+    },
+    onSettled: invalidate,
+  })
+}
+
+export function useLogTime(projectId: string) {
   const invalidate = useInvalidateProject(projectId)
   return useMutation({
-    mutationFn: ({
-      id,
-      input,
-    }: {
-      id: string
-      input: ContributionReviewInput
-    }) =>
-      apiFetch<ContributionEntry>(
-        `/projects/${projectId}/contributions/${id}/review`,
+    mutationFn: (input: LogTimeInput) =>
+      apiFetch<{ weekStart: string; row: TimesheetRow }>(
+        `/projects/${projectId}/timesheets/log`,
         { method: 'POST', body: JSON.stringify(input) },
       ),
     onSuccess: invalidate,
+  })
+}
+
+export function useSubmitTimesheet(projectId: string) {
+  const invalidate = useInvalidateProject(projectId)
+  return useMutation({
+    mutationFn: ({
+      week,
+      action,
+    }: {
+      week: string
+      action: 'submit' | 'recall'
+    }) =>
+      apiFetch<Timesheet>(`/projects/${projectId}/timesheets/${action}`, {
+        method: 'POST',
+        body: JSON.stringify({ week }),
+      }),
+    onSuccess: invalidate,
+  })
+}
+
+/** Takes the project per call so the Reviews page can review across groups. */
+export function useReviewTimesheet() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      id,
+      input,
+    }: {
+      projectId: string
+      id: string
+      input: TimesheetReviewInput
+    }) =>
+      apiFetch<Timesheet>(`/projects/${projectId}/timesheets/${id}/review`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (_, { projectId }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projects', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
+      ]),
   })
 }

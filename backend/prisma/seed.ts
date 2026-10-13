@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { config } from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
-  ContributionReviewStatus,
   ContributionType,
   MeetingMode,
   MeetingPhase,
@@ -15,9 +14,15 @@ import {
   SprintStatus,
   StatusCategory,
   TaskPriority,
+  TimesheetStatus,
   WorkspaceRole,
 } from '@prisma/client';
-import { addWeeks, startOfIsoWeek } from '../src/common/week';
+import {
+  addDays,
+  addWeeks,
+  startOfIsoWeek,
+  startOfUtcDay,
+} from '../src/common/week';
 import { DEFAULT_WORKFLOW_STATUSES } from '../src/projects/default-workflow-statuses';
 
 config({ path: ['.env', '../.env'], quiet: true });
@@ -77,6 +82,73 @@ async function seedUsers() {
 /** Friday of the week starting `monday`. */
 function fridayOf(monday: Date): Date {
   return new Date(monday.getTime() + 4 * 24 * 60 * 60 * 1000);
+}
+
+interface SeedRow {
+  type: ContributionType;
+  taskId?: string;
+  description?: string;
+  /** Day offset from Monday, hours, and an optional note. */
+  days: [number, number, string?][];
+}
+
+interface SeedReview {
+  status: TimesheetStatus;
+  reviewerId?: string;
+  comment?: string;
+}
+
+/** A member's week. Days after today move back to today, so the seed never logs the future. */
+async function seedTimesheet(
+  projectId: string,
+  userId: string,
+  weekStart: Date,
+  rows: SeedRow[],
+  review: SeedReview = { status: TimesheetStatus.DRAFT },
+) {
+  const today = startOfUtcDay(new Date());
+  const decided =
+    review.status === TimesheetStatus.APPROVED ||
+    review.status === TimesheetStatus.CHANGES_REQUESTED;
+
+  await prisma.timesheet.create({
+    data: {
+      projectId,
+      userId,
+      weekStart,
+      status: review.status,
+      submittedAt: review.status === TimesheetStatus.DRAFT ? null : new Date(),
+      reviewedById: decided ? review.reviewerId : null,
+      reviewedAt: decided ? new Date() : null,
+      reviewComment: review.comment ?? null,
+      entries: {
+        create: rows.map((row) => {
+          const days = new Map<string, { hours: number; note?: string }>();
+          for (const [offset, hours, note] of row.days) {
+            const date = addDays(weekStart, offset);
+            const key = (date > today ? today : date).toISOString();
+            const day = days.get(key) ?? { hours: 0 };
+            day.hours += hours;
+            day.note = [day.note, note].filter(Boolean).join('\n') || undefined;
+            days.set(key, day);
+          }
+          return {
+            type: row.type,
+            taskId: row.taskId ?? null,
+            description: row.description ?? '',
+            hours: row.days.reduce((sum, [, hours]) => sum + hours, 0),
+            days: {
+              create: [...days].map(([date, day]) => ({
+                date: new Date(date),
+                hours: day.hours,
+                note: day.note ?? null,
+              })),
+            },
+          };
+        }),
+      },
+    },
+  });
 }
 
 async function main() {
@@ -267,60 +339,87 @@ async function main() {
     data: { blockingTaskId: apiTask.id, blockedTaskId: boardTask.id },
   });
 
-  await prisma.contributionEntry.createMany({
-    data: [
+  await seedTimesheet(
+    project.id,
+    alice.id,
+    lastWeek,
+    [
       {
-        projectId: project.id,
-        userId: alice.id,
-        weekStart: lastWeek,
-        hours: 6,
         type: ContributionType.DEVELOPMENT,
         taskId: oauthTask.id,
-        description: 'Implemented the GitHub OAuth flow and session handling.',
-        reviewStatus: ContributionReviewStatus.APPROVED,
-        reviewedById: supervisor.id,
-        reviewedAt: new Date(),
-      },
-      {
-        projectId: project.id,
-        userId: bob.id,
-        weekStart: lastWeek,
-        hours: 2,
-        type: ContributionType.MEETING,
-        description: 'Sprint planning meeting with the team.',
-      },
-      {
-        projectId: project.id,
-        userId: bob.id,
-        weekStart: thisWeek,
-        hours: 4.5,
-        type: ContributionType.DEVELOPMENT,
-        taskId: boardTask.id,
-        description: 'Built the first version of the board columns.',
-      },
-      {
-        projectId: project.id,
-        userId: chen.id,
-        weekStart: thisWeek,
-        hours: 3,
-        type: ContributionType.TESTING,
-        taskId: apiTask.id,
-        description: 'Wrote e2e tests for the task endpoints.',
-        reviewStatus: ContributionReviewStatus.CHANGES_REQUESTED,
-        reviewedById: supervisor.id,
-        reviewedAt: new Date(),
-        reviewComment: 'Please link the PR that contains these tests.',
-      },
-      {
-        projectId: project.id,
-        userId: chen.id,
-        weekStart: thisWeek,
-        hours: 1.5,
-        type: ContributionType.RESEARCH,
-        description: 'Compared webhook vs polling for GitHub sync.',
+        days: [
+          [0, 2, 'OAuth app and callback route'],
+          [1, 1.5],
+          [2, 2.5, 'Session handling and logout'],
+        ],
       },
     ],
-  });
+    { status: TimesheetStatus.APPROVED, reviewerId: supervisor.id },
+  );
+  await seedTimesheet(
+    project.id,
+    bob.id,
+    lastWeek,
+    [
+      {
+        type: ContributionType.MEETING,
+        description: 'Sprint planning meeting with the team.',
+        days: [[2, 2]],
+      },
+    ],
+    { status: TimesheetStatus.SUBMITTED },
+  );
+  await seedTimesheet(
+    project.id,
+    chen.id,
+    lastWeek,
+    [
+      {
+        type: ContributionType.DOCUMENTATION,
+        description: 'API section of the design document.',
+        days: [
+          [3, 3, 'Endpoints and error format'],
+          [4, 2],
+        ],
+      },
+    ],
+    { status: TimesheetStatus.SUBMITTED },
+  );
+  await seedTimesheet(project.id, bob.id, thisWeek, [
+    {
+      type: ContributionType.DEVELOPMENT,
+      taskId: boardTask.id,
+      days: [
+        [0, 2.5, 'Column layout'],
+        [1, 2, 'Drag and drop spike'],
+      ],
+    },
+  ]);
+  await seedTimesheet(
+    project.id,
+    chen.id,
+    thisWeek,
+    [
+      {
+        type: ContributionType.TESTING,
+        taskId: apiTask.id,
+        days: [
+          [0, 1.5, 'Task endpoint tests'],
+          [1, 1.5],
+        ],
+      },
+      {
+        type: ContributionType.RESEARCH,
+        description: 'Compared webhook vs polling for GitHub sync.',
+        days: [[0, 1.5]],
+      },
+    ],
+    {
+      status: TimesheetStatus.CHANGES_REQUESTED,
+      reviewerId: supervisor.id,
+      comment: 'Please link the PR that contains these tests.',
+    },
+  );
 
   const meetingCount = await seedRecordBook(project.id, {
     students: [alice.id, bob.id, chen.id],
@@ -526,34 +625,36 @@ async function seedSecondGroup(
     },
   });
 
-  await prisma.contributionEntry.createMany({
-    data: [
+  await seedTimesheet(
+    project.id,
+    lead,
+    addWeeks(thisWeek, -1),
+    [
       {
-        projectId: project.id,
-        userId: lead,
-        weekStart: addWeeks(thisWeek, -1),
-        hours: 3,
         type: ContributionType.RESEARCH,
         description: 'Compared indoor positioning options.',
-      },
-      {
-        projectId: project.id,
-        userId: member,
-        weekStart: thisWeek,
-        hours: 5,
-        type: ContributionType.DEVELOPMENT,
-        description: 'Digitised the ground floor plan.',
-      },
-      {
-        projectId: project.id,
-        userId: lead,
-        weekStart: thisWeek,
-        hours: 1,
-        type: ContributionType.MEETING,
-        description: 'Weekly check-in with Dr. Silva.',
+        days: [[1, 3]],
       },
     ],
-  });
+    { status: TimesheetStatus.SUBMITTED },
+  );
+  await seedTimesheet(project.id, member, thisWeek, [
+    {
+      type: ContributionType.DEVELOPMENT,
+      description: 'Digitised the ground floor plan.',
+      days: [
+        [0, 3],
+        [1, 2],
+      ],
+    },
+  ]);
+  await seedTimesheet(project.id, lead, thisWeek, [
+    {
+      type: ContributionType.MEETING,
+      description: 'Weekly check-in with Dr. Silva.',
+      days: [[0, 1]],
+    },
+  ]);
   return project;
 }
 

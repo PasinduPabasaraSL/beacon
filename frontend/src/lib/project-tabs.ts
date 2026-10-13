@@ -17,7 +17,7 @@ export interface ProjectTab {
 export const PROJECT_TABS: ProjectTab[] = [
   { to: '', label: 'Overview', icon: LayoutDashboard },
   { to: 'board', label: 'Board', icon: SquareKanban },
-  { to: 'contributions', label: 'Contributions', icon: Clock },
+  { to: 'contributions', label: 'Timesheet', icon: Clock },
   { to: 'timeline', label: 'Timeline', icon: CalendarRange },
   { to: 'record-book', label: 'Record book', icon: BookOpenCheck },
 ]

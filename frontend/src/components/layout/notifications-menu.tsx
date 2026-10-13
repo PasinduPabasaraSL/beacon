@@ -17,7 +17,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useMe, useMyWeek, useReviewQueue } from '@/hooks/queries'
-import { displayName, formatDate, formatHours } from '@/lib/format'
+import {
+  displayName,
+  formatDate,
+  formatHours,
+  formatWeekRange,
+} from '@/lib/format'
 
 const MAX_ITEMS = 6
 
@@ -44,23 +49,23 @@ function useNotices(): { notices: Notice[]; total: number; to: string } {
       to: '/reviews',
     })
   }
-  for (const entry of queue?.entries ?? []) {
+  for (const timesheet of queue?.timesheets ?? []) {
     notices.push({
-      id: `entry-${entry.id}`,
+      id: `timesheet-${timesheet.id}`,
       icon: <Clock />,
-      title: `${displayName(entry.user)} logged ${formatHours(entry.hours)}`,
-      detail: `${entry.project.key} · ${entry.description}`,
+      title: `${displayName(timesheet.user)} submitted ${formatHours(timesheet.totalHours)}`,
+      detail: `${timesheet.project.key} · week of ${formatWeekRange(timesheet.weekStart)}`,
       to: '/reviews',
     })
   }
   if (me?.isStudent) {
-    for (const entry of week?.changesRequested ?? []) {
+    for (const timesheet of week?.changesRequested ?? []) {
       notices.push({
-        id: `changes-${entry.id}`,
+        id: `changes-${timesheet.id}`,
         icon: <MessageSquareWarning />,
-        title: `Changes requested on ${formatHours(entry.hours)}`,
-        detail: `${entry.project.key} · ${entry.reviewComment ?? entry.description}`,
-        to: '/me',
+        title: 'Changes requested on your timesheet',
+        detail: `${timesheet.project.key} · ${timesheet.reviewComment ?? formatWeekRange(timesheet.weekStart)}`,
+        to: `/projects/${timesheet.project.id}/contributions?week=${timesheet.weekStart.slice(0, 10)}`,
       })
     }
     for (const milestone of week?.milestones ?? []) {

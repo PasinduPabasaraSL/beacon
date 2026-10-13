@@ -64,7 +64,7 @@ function ProjectActions({ project }: { project: ProjectDetail }) {
           <SquareKanban /> Open board
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate('contributions')}>
-          <Clock /> Log hours
+          <Clock /> Open timesheet
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate('record-book')}>
           <BookOpenCheck /> Add record book entry

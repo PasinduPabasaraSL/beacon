@@ -6,11 +6,11 @@ import {
   IsUUID,
 } from 'class-validator';
 
-export class ApproveEntriesDto {
+export class ApproveTimesheetsDto {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(100)
   @ArrayUnique()
   @IsUUID('all', { each: true })
-  entryIds!: string[];
+  timesheetIds!: string[];
 }

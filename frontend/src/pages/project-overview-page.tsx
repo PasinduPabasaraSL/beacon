@@ -164,7 +164,7 @@ function WeeklyTrend({
     <Card>
       <CardHeader>
         <CardTitle>Team hours per week</CardTitle>
-        <CardDescription>Self-reported contributions</CardDescription>
+        <CardDescription>From weekly timesheets</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex h-40 items-end gap-4">

@@ -1,6 +1,5 @@
 import type {
   AcademicWeek,
-  ContributionReviewStatus,
   ContributionType,
   MeetingMode,
   MeetingPhase,
@@ -13,6 +12,7 @@ import type {
   SignatureMethod,
   StatusCategory,
   TaskPriority,
+  TimesheetStatus,
   UserSummary,
 } from '@/lib/types'
 
@@ -61,6 +61,12 @@ export function shiftWeek(weekStart: string, weeks: number): string {
   return new Date(start.getTime() + weeks * 7 * DAY_MS)
     .toISOString()
     .slice(0, 10)
+}
+
+/** YYYY-MM-DD `days` after a YYYY-MM-DD day. */
+export function shiftDays(day: string, days: number): string {
+  const start = new Date(`${day}T00:00:00Z`)
+  return new Date(start.getTime() + days * DAY_MS).toISOString().slice(0, 10)
 }
 
 export function isOverdue(dueDate: string | null, done: boolean): boolean {
@@ -148,17 +154,65 @@ export const CONTRIBUTION_TYPE_COLORS: Record<ContributionType, string> = {
   OTHER: 'bg-slate-400',
 }
 
-export const REVIEW_LABELS: Record<ContributionReviewStatus, string> = {
-  PENDING: 'Pending review',
+export const TIMESHEET_STATUS_LABELS: Record<TimesheetStatus, string> = {
+  DRAFT: 'Draft',
+  SUBMITTED: 'Submitted',
   APPROVED: 'Approved',
   CHANGES_REQUESTED: 'Changes requested',
 }
 
-export const REVIEW_STYLES: Record<ContributionReviewStatus, string> = {
-  PENDING: 'border-border text-muted-foreground',
+export const TIMESHEET_STATUS_STYLES: Record<TimesheetStatus, string> = {
+  DRAFT: 'border-border text-muted-foreground',
+  SUBMITTED: 'border-info/30 bg-info-soft text-info-foreground',
   APPROVED: 'border-success/30 bg-success-soft text-success-foreground',
   CHANGES_REQUESTED:
     'border-warning/35 bg-warning-soft text-warning-foreground',
+}
+
+/** The user's local calendar day as YYYY-MM-DD, which is what "today" means on a timesheet. */
+export function localToday(): string {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+/** Hours for a timesheet cell: `1.5`, `1,5`, `1:30`, `90m` or `2h`. Null when unreadable. */
+export function parseHoursInput(text: string): number | null {
+  const value = text.trim().toLowerCase().replace(',', '.')
+  if (value === '') return 0
+  const clock = /^(\d{1,2}):([0-5]\d)$/.exec(value)
+  if (clock) return Number(clock[1]) + Number(clock[2]) / 60
+  const minutes = /^(\d+(?:\.\d+)?)\s*m(in)?$/.exec(value)
+  if (minutes) return Number(minutes[1]) / 60
+  const hours = /^(\d+(?:\.\d+)?|\.\d+)\s*h?$/.exec(value)
+  return hours ? Number(hours[1]) : null
+}
+
+/** A cell value without the unit: 1.5, 0.25, 8. */
+export function formatHoursValue(hours: number): string {
+  return String(Math.round(hours * 100) / 100)
+}
+
+const weekdayShort = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  timeZone: 'UTC',
+})
+const weekdayLong = new Intl.DateTimeFormat(undefined, {
+  weekday: 'long',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})
+
+/** `Mon` for a YYYY-MM-DD day. */
+export function formatWeekday(day: string): string {
+  return weekdayShort.format(new Date(`${day}T00:00:00Z`))
+}
+
+/** `Monday, Oct 12` for a YYYY-MM-DD day. */
+export function formatLongDay(day: string): string {
+  return weekdayLong.format(new Date(`${day}T00:00:00Z`))
 }
 
 export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {

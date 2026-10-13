@@ -12,7 +12,7 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 import type { UserSummary } from '../common/user-summary';
-import { ApproveEntriesDto } from './dto/approve-entries.dto';
+import { ApproveTimesheetsDto } from './dto/approve-timesheets.dto';
 import { SaveSignatureDto } from './dto/save-signature.dto';
 import { MeService } from './me.service';
 
@@ -38,8 +38,8 @@ export class MeController {
 
   @Post('reviews/approve')
   @HttpCode(HttpStatus.OK)
-  approve(@CurrentUser() user: UserSummary, @Body() dto: ApproveEntriesDto) {
-    return this.me.approve(user, dto.entryIds);
+  approve(@CurrentUser() user: UserSummary, @Body() dto: ApproveTimesheetsDto) {
+    return this.me.approve(user, dto.timesheetIds);
   }
 
   /** `null` until the user saves one. */

@@ -5,7 +5,7 @@ async function actAs(page: Page, name: string) {
   await page.getByRole('option', { name }).click()
 }
 
-test('weekly check-in, supervisor review queue and feedback loop', async ({
+test('weekly check-in, quick log and supervisor review queue', async ({
   page,
 }) => {
   const description = `Playwright week ${Date.now()}`
@@ -24,40 +24,37 @@ test('weekly check-in, supervisor review queue and feedback loop', async ({
   await expect(page.getByRole('heading', { name: 'My week' })).toBeVisible()
   await expect(page.getByText(/Week \d+ of \d+/).first()).toBeVisible()
 
-  await page.getByRole('button', { name: 'Log hours' }).first().click()
+  // Quick log from the check-in card lands on today's cell of the timesheet.
+  await page.getByRole('button', { name: 'Log time' }).first().click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Hours').fill('1.5')
   await dialog.getByLabel('What did you work on?').fill(description)
   await dialog.getByRole('button', { name: 'Log hours' }).click()
   await expect(dialog).toBeHidden()
 
-  // Supervisors land on the review queue and ask for changes from there.
+  await page.getByRole('link', { name: 'Timesheet' }).first().click()
+  const row = page.getByRole('row').filter({ hasText: description })
+  await expect(row).toContainText('1.5h')
+
+  // Supervisors land on the review queue of submitted weeks.
   await actAs(page, 'Dr. Silva (Supervisor)')
   await page.goto('/')
   await expect(page).toHaveURL(/\/reviews$/)
-  const row = page.getByRole('row').filter({ hasText: description })
-  await expect(row).toContainText('Bob Student')
-  await row.getByRole('button', { name: 'Entry actions' }).click()
-  await page.getByRole('menuitem', { name: 'Request changes' }).click()
-  await dialog.getByLabel('What should be changed?').fill('Name the task')
-  await dialog.getByRole('button', { name: 'Request changes' }).click()
-  await expect(row).toHaveCount(0)
+  await expect(page.getByText('Weekly timesheets')).toBeVisible()
+  await expect(
+    page.getByText('Sprint planning meeting with the team.'),
+  ).toBeVisible()
 
-  // The student sees the feedback on their week.
+  // Clean up on the student's timesheet.
   await actAs(page, 'Bob Student')
   await page.goto('/me')
-  const feedback = page.getByRole('listitem').filter({ hasText: description })
-  await expect(feedback).toContainText('Name the task')
-
-  // Clean up through the project contributions page.
-  await page.goto('/projects')
-  await card.click()
-  await page.getByRole('link', { name: 'Contributions', exact: true }).click()
-  const entry = page.getByRole('row').filter({ hasText: description })
-  await entry.getByRole('button', { name: 'Entry actions' }).click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
-  await dialog.getByRole('button', { name: 'Delete' }).click()
-  await expect(entry).toHaveCount(0)
+  await page.getByRole('link', { name: 'Timesheet' }).first().click()
+  await page
+    .getByRole('button', { name: `Row actions for ${description}` })
+    .click()
+  await page.getByRole('menuitem', { name: 'Delete row' }).click()
+  await dialog.getByRole('button', { name: 'Delete row' }).click()
+  await expect(row).toHaveCount(0)
 })
 
 test('timeline shows the semester and milestones', async ({ page }) => {
