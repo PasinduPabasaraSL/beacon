@@ -7,14 +7,21 @@ import type {
   ContributionInput,
   ContributionReviewInput,
   Me,
+  MeetingInput,
+  MeetingRecord,
+  MeetingReviewInput,
   Milestone,
   MilestoneInput,
   MyWeek,
   ProjectDashboard,
   ProjectDetail,
   ProjectListItem,
+  RecordBook,
+  RecordBookDetails,
   ReviewQueue,
   SemesterInput,
+  SignatureMethod,
+  UserSignature,
   UserSummary,
   WeeklyContributions,
   WorkspaceSemester,
@@ -116,6 +123,118 @@ export function useApproveEntries() {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: ['me'] }),
         queryClient.invalidateQueries({ queryKey: ['projects'] }),
+      ]),
+  })
+}
+
+export function useMySignature({ enabled = true } = {}) {
+  const actingUserId = useActingUserId()
+  return useQuery({
+    queryKey: ['me', actingUserId, 'signature'],
+    queryFn: ({ signal }) =>
+      apiFetch<{ signature: UserSignature | null }>('/me/signature', {
+        signal,
+      }),
+    enabled: !!actingUserId && enabled,
+  })
+}
+
+export function useSaveSignature() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { method: SignatureMethod; image: string }) =>
+      apiFetch<{ signature: UserSignature }>('/me/signature', {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['me'] }),
+  })
+}
+
+export function useDeleteSignature() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiFetch<null>('/me/signature', { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['me'] }),
+  })
+}
+
+export function useRecordBook(projectId: string) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'record-book'],
+    queryFn: ({ signal }) =>
+      apiFetch<RecordBook>(`/projects/${projectId}/record-book`, { signal }),
+  })
+}
+
+export function useUpdateRecordBookDetails(projectId: string) {
+  const invalidate = useInvalidateProject(projectId)
+  return useMutation({
+    mutationFn: (input: RecordBookDetails) =>
+      apiFetch<RecordBook>(`/projects/${projectId}/record-book/details`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useSignRecordBook(projectId: string) {
+  const invalidate = useInvalidateProject(projectId)
+  return useMutation({
+    mutationFn: (input: { registrationNumber?: string }) =>
+      apiFetch<RecordBook>(`/projects/${projectId}/record-book/sign`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useSaveMeeting(projectId: string) {
+  const invalidate = useInvalidateProject(projectId)
+  return useMutation({
+    mutationFn: ({ id, input }: { id?: string; input: MeetingInput }) =>
+      apiFetch<MeetingRecord>(
+        `/projects/${projectId}/meetings${id ? `/${id}` : ''}`,
+        { method: id ? 'PATCH' : 'POST', body: JSON.stringify(input) },
+      ),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteMeeting(projectId: string) {
+  const invalidate = useInvalidateProject(projectId)
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<null>(`/projects/${projectId}/meetings/${id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: invalidate,
+  })
+}
+
+/** Takes the project per call so the Reviews page can review across groups. */
+export function useReviewMeeting() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      id,
+      input,
+    }: {
+      projectId: string
+      id: string
+      input: MeetingReviewInput
+    }) =>
+      apiFetch<MeetingRecord>(`/projects/${projectId}/meetings/${id}/review`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (_, { projectId }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projects', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
       ]),
   })
 }

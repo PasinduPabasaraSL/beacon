@@ -10,6 +10,7 @@ const tabs = [
   { to: 'board', label: 'Board', end: false },
   { to: 'contributions', label: 'Contributions', end: false },
   { to: 'timeline', label: 'Timeline', end: false },
+  { to: 'record-book', label: 'Record book', end: false },
 ]
 
 export function ProjectLayout() {
@@ -41,7 +42,7 @@ export function ProjectLayout() {
             <Skeleton className="h-8 w-64" />
           </div>
         )}
-        <nav className="-mb-px flex gap-1">
+        <nav className="-mb-px flex gap-1 overflow-x-auto">
           {tabs.map((tab) => (
             <NavLink
               key={tab.label}
@@ -49,7 +50,7 @@ export function ProjectLayout() {
               end={tab.end}
               className={({ isActive }) =>
                 cn(
-                  'text-muted-foreground hover:text-foreground border-b-2 px-3 pb-2 text-sm transition-colors',
+                  'text-muted-foreground hover:text-foreground border-b-2 px-3 pb-2 text-sm whitespace-nowrap transition-colors',
                   isActive
                     ? 'border-foreground text-foreground font-medium'
                     : 'border-transparent',

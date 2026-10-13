@@ -102,7 +102,7 @@ function usePrimaryLinks(): PrimaryLink[] {
       to: '/reviews',
       label: 'Reviews',
       icon: ClipboardCheck,
-      count: queue?.entries.length,
+      count: queue && queue.entries.length + queue.meetings.length,
     })
   }
   links.push({ to: '/projects', label: 'Projects', icon: FolderKanban })

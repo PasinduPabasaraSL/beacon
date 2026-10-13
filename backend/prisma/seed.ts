@@ -1,11 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { config } from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
   ContributionReviewStatus,
   ContributionType,
+  MeetingMode,
+  MeetingPhase,
+  MeetingRecordStatus,
   PrismaClient,
   ProjectRole,
   SemesterBreakKind,
+  SignatureMethod,
   SprintStatus,
   StatusCategory,
   TaskPriority,
@@ -24,9 +30,24 @@ const prisma = new PrismaClient({
 
 async function seedUsers() {
   const users = [
-    { githubId: '9000001', githubLogin: 'alice-demo', name: 'Alice Lead' },
-    { githubId: '9000002', githubLogin: 'bob-demo', name: 'Bob Student' },
-    { githubId: '9000003', githubLogin: 'chen-demo', name: 'Chen Student' },
+    {
+      githubId: '9000001',
+      githubLogin: 'alice-demo',
+      name: 'Alice Lead',
+      registrationNumber: '224001A',
+    },
+    {
+      githubId: '9000002',
+      githubLogin: 'bob-demo',
+      name: 'Bob Student',
+      registrationNumber: '224002B',
+    },
+    {
+      githubId: '9000003',
+      githubLogin: 'chen-demo',
+      name: 'Chen Student',
+      registrationNumber: '224003C',
+    },
     {
       githubId: '9000004',
       githubLogin: 'dr-silva-demo',
@@ -44,6 +65,7 @@ async function seedUsers() {
           githubLogin: user.githubLogin,
           name: user.name,
           avatarUrl: null,
+          registrationNumber: user.registrationNumber ?? null,
         },
         create: user,
       }),
@@ -300,6 +322,13 @@ async function main() {
     ],
   });
 
+  const meetingCount = await seedRecordBook(project.id, {
+    students: [alice.id, bob.id, chen.id],
+    supervisor: supervisor.id,
+    semesterStart,
+    thisWeek,
+  });
+
   const navigator = await seedSecondGroup(workspace.id, {
     lead: dana.id,
     member: eli.id,
@@ -309,8 +338,127 @@ async function main() {
 
   console.log(
     `Seeded workspace "${workspace.name}" with projects ${project.key} ` +
-      `(${tasks.length} tasks, 3 milestones) and ${navigator.key}.`,
+      `(${tasks.length} tasks, 3 milestones, ${meetingCount} record book ` +
+      `entries) and ${navigator.key}.`,
   );
+}
+
+/**
+ * The supervisor meeting record book for BCN: signed details page, two
+ * certified meetings, one awaiting the supervisor and one sent back.
+ */
+async function seedRecordBook(
+  projectId: string,
+  people: {
+    students: [string, string, string];
+    supervisor: string;
+    semesterStart: Date;
+    thisWeek: Date;
+  },
+) {
+  const { students, supervisor, semesterStart, thisWeek } = people;
+  const [lead, bob, chen] = students;
+  const signature = `data:image/png;base64,${readFileSync(
+    join(__dirname, 'seed-assets', 'supervisor-signature.png'),
+  ).toString('base64')}`;
+
+  await prisma.userSignature.upsert({
+    where: { userId: supervisor },
+    update: { image: signature, method: SignatureMethod.UPLOAD },
+    create: {
+      userId: supervisor,
+      image: signature,
+      method: SignatureMethod.UPLOAD,
+    },
+  });
+
+  await prisma.recordBook.create({
+    data: {
+      projectId,
+      batch: '22',
+      groupName: 'Group 07 - Beacon',
+      department: 'Department of Information Technology',
+      faculty: 'Faculty of Information Technology',
+      university: 'University of Moratuwa',
+    },
+  });
+  await prisma.recordBookSignature.create({
+    data: { projectId, userId: supervisor, image: signature },
+  });
+
+  const wednesdayOf = (monday: Date) =>
+    new Date(monday.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const certified = (daysAgo: number) => ({
+    status: MeetingRecordStatus.CERTIFIED,
+    certifiedById: supervisor,
+    certifiedAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
+    signatureImage: signature,
+  });
+
+  const meetings = [
+    {
+      phase: MeetingPhase.PROBLEM_IDENTIFICATION,
+      mode: MeetingMode.IN_PERSON,
+      meetingDate: wednesdayOf(semesterStart),
+      summary:
+        'Discussed the problem of tracking contributions in student teams. ' +
+        'Agreed to interview two other groups before fixing the scope.',
+      attendees: [lead, bob, chen],
+      supervisorComment: 'Good start. Bring the interview notes next time.',
+      ...certified(35),
+    },
+    {
+      phase: MeetingPhase.ANALYSIS_DESIGN,
+      mode: MeetingMode.IN_PERSON,
+      meetingDate: wednesdayOf(addWeeks(semesterStart, 2)),
+      summary:
+        'Presented the requirements and use case diagram. Supervisor asked ' +
+        'for a clearer split between self-reported hours and GitHub activity.',
+      attendees: [lead, bob, chen],
+      supervisorComment: null,
+      ...certified(21),
+    },
+    {
+      phase: MeetingPhase.SYSTEM_DESIGN,
+      mode: MeetingMode.ONLINE_UPDATE,
+      meetingDate: wednesdayOf(addWeeks(thisWeek, -2)),
+      summary:
+        'Shared the database schema and API outline. Asked whether the ' +
+        'review queue should include project owners as reviewers.',
+      attendees: [lead, chen],
+      supervisorComment:
+        'Please attach the ER diagram and list the endpoints you changed.',
+      status: MeetingRecordStatus.CHANGES_REQUESTED,
+    },
+    {
+      phase: MeetingPhase.DEVELOPMENT_EVALUATION,
+      mode: MeetingMode.ONLINE_UPDATE,
+      meetingDate: addWeeks(thisWeek, -1),
+      summary:
+        'Board and contribution logging are working. Next week: semester ' +
+        'timeline and the review queue for the midterm demo.',
+      attendees: [lead, bob, chen],
+      supervisorComment: null,
+      status: MeetingRecordStatus.SUBMITTED,
+    },
+  ];
+
+  for (const [index, { attendees, ...meeting }] of meetings.entries()) {
+    await prisma.meetingRecord.create({
+      data: {
+        projectId,
+        number: index + 1,
+        createdById: lead,
+        ...meeting,
+        attendees: { create: attendees.map((userId) => ({ userId })) },
+      },
+    });
+  }
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { meetingCounter: meetings.length },
+  });
+  return meetings.length;
 }
 
 /** A second group under the same supervisor, so the review queue spans teams. */

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
   ContributionType,
@@ -8,7 +8,6 @@ import {
   StatusCategory,
 } from '@prisma/client';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { addWeeks, startOfIsoWeek } from '../src/common/week';
@@ -34,7 +33,7 @@ type Contributions = Json<
 >;
 
 describe('Projects, board, dashboard and contributions (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
 
   const suffix = randomUUID().slice(0, 8);
@@ -47,7 +46,7 @@ describe('Projects, board, dashboard and contributions (e2e)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);

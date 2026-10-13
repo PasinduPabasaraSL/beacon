@@ -68,28 +68,74 @@ enum SemesterBreakKind {
   EXAM
 }
 
+/// ONLINE_UPDATE: progress written in Beacon instead of meeting. IN_PERSON: a face-to-face meeting.
+enum MeetingMode {
+  ONLINE_UPDATE
+  IN_PERSON
+}
+
+/// Sections A-D of the supervisor meeting record book.
+enum MeetingPhase {
+  PROBLEM_IDENTIFICATION
+  ANALYSIS_DESIGN
+  SYSTEM_DESIGN
+  DEVELOPMENT_EVALUATION
+}
+
+enum MeetingRecordStatus {
+  SUBMITTED
+  CHANGES_REQUESTED
+  CERTIFIED
+}
+
+enum SignatureMethod {
+  UPLOAD
+  DRAWN
+  TYPED
+}
+
 // ---------------------------------------------------------------------------
 // Identity and tenancy
 // ---------------------------------------------------------------------------
 
 model User {
-  id          String   @id @default(uuid(7)) @db.Uuid
-  githubId    String   @unique @map("github_id")
-  githubLogin String   @unique @map("github_login")
-  name        String?
-  email       String?
-  avatarUrl   String?  @map("avatar_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  githubId           String   @unique @map("github_id")
+  githubLogin        String   @unique @map("github_login")
+  name               String?
+  email              String?
+  avatarUrl          String?  @map("avatar_url")
+  /// University student registration number, shown in the record book.
+  registrationNumber String?  @unique @map("registration_number")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   workspaceMemberships  WorkspaceMember[]
   projectMemberships    ProjectMember[]
   taskAssignments       TaskAssignee[]
-  reportedTasks         Task[]              @relation("TaskReporter")
-  contributions         ContributionEntry[] @relation("ContributionAuthor")
-  reviewedContributions ContributionEntry[] @relation("ContributionReviewer")
+  reportedTasks         Task[]                @relation("TaskReporter")
+  contributions         ContributionEntry[]   @relation("ContributionAuthor")
+  reviewedContributions ContributionEntry[]   @relation("ContributionReviewer")
+  signature             UserSignature?
+  recordBookSignatures  RecordBookSignature[]
+  createdMeetings       MeetingRecord[]       @relation("MeetingCreator")
+  certifiedMeetings     MeetingRecord[]       @relation("MeetingCertifier")
+  meetingsAttended      MeetingAttendee[]
 
   @@map("users")
+}
+
+/// The signature a user saves once and reuses when signing.
+model UserSignature {
+  userId    String          @id @map("user_id") @db.Uuid
+  /// PNG or JPEG data URL.
+  image     String
+  method    SignatureMethod
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_signatures")
 }
 
 model Workspace {
@@ -144,25 +190,30 @@ model WorkspaceMember {
 // ---------------------------------------------------------------------------
 
 model Project {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  workspaceId String    @map("workspace_id") @db.Uuid
-  name        String
+  id             String    @id @default(uuid(7)) @db.Uuid
+  workspaceId    String    @map("workspace_id") @db.Uuid
+  name           String
   /// Short uppercase prefix for task identifiers, e.g. "BCN" -> BCN-42.
-  key         String
-  description String?
+  key            String
+  description    String?
   /// Last issued task number; incremented when a task is created.
-  taskCounter Int       @default(0) @map("task_counter")
-  archivedAt  DateTime? @map("archived_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  taskCounter    Int       @default(0) @map("task_counter")
+  /// Last issued record book meeting number.
+  meetingCounter Int       @default(0) @map("meeting_counter")
+  archivedAt     DateTime? @map("archived_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  workspace     Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  members       ProjectMember[]
-  statuses      WorkflowStatus[]
-  sprints       Sprint[]
-  milestones    Milestone[]
-  tasks         Task[]
-  contributions ContributionEntry[]
+  workspace            Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members              ProjectMember[]
+  statuses             WorkflowStatus[]
+  sprints              Sprint[]
+  milestones           Milestone[]
+  tasks                Task[]
+  contributions        ContributionEntry[]
+  recordBook           RecordBook?
+  recordBookSignatures RecordBookSignature[]
+  meetings             MeetingRecord[]
 
   @@unique([workspaceId, key])
   @@map("projects")
@@ -338,4 +389,82 @@ model ContributionEntry {
   @@index([userId, weekStart])
   @@index([taskId])
   @@map("contribution_entries")
+}
+
+// ---------------------------------------------------------------------------
+// Supervisor meeting record book
+// ---------------------------------------------------------------------------
+
+/// Cover and details page of a group's record book.
+model RecordBook {
+  projectId   String   @id @map("project_id") @db.Uuid
+  moduleTitle String   @default("IS2901 - Software Development Project") @map("module_title")
+  level       String   @default("Level 02")
+  batch       String?
+  groupName   String?  @map("group_name")
+  department  String?
+  faculty     String?
+  university  String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("record_books")
+}
+
+/// A member or supervisor signing the details page. The image is a copy of their signature at that time.
+model RecordBookSignature {
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  image     String
+  signedAt  DateTime @default(now()) @map("signed_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@map("record_book_signatures")
+}
+
+model MeetingRecord {
+  id                String              @id @default(uuid(7)) @db.Uuid
+  projectId         String              @map("project_id") @db.Uuid
+  /// Per-project sequence number, the "Meeting Number" in the book.
+  number            Int
+  phase             MeetingPhase
+  mode              MeetingMode
+  meetingDate       DateTime            @map("meeting_date") @db.Date
+  summary           String
+  createdById       String              @map("created_by_id") @db.Uuid
+  status            MeetingRecordStatus @default(SUBMITTED)
+  supervisorComment String?             @map("supervisor_comment")
+  certifiedById     String?             @map("certified_by_id") @db.Uuid
+  certifiedAt       DateTime?           @map("certified_at")
+  /// Copy of the certifier's signature, so later signature changes don't alter the record.
+  signatureImage    String?             @map("signature_image")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User              @relation("MeetingCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  certifiedBy User?             @relation("MeetingCertifier", fields: [certifiedById], references: [id], onDelete: SetNull)
+  attendees   MeetingAttendee[]
+
+  @@unique([projectId, number])
+  @@index([projectId, phase])
+  @@index([projectId, status])
+  @@map("meeting_records")
+}
+
+/// "Group Members Present" for in-person meetings, contributors for online updates.
+model MeetingAttendee {
+  meetingId String @map("meeting_id") @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+
+  meeting MeetingRecord @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, userId])
+  @@index([userId])
+  @@map("meeting_attendees")
 }

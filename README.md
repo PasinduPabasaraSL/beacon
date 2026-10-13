@@ -4,10 +4,10 @@ Lightweight project management for software teams, built around GitHub.
 
 ## Repository layout
 
-| Path        | Description                                      |
-| ----------- | ------------------------------------------------ |
+| Path        | Description                                        |
+| ----------- | -------------------------------------------------- |
 | `frontend/` | React + Vite + TypeScript, Tailwind CSS, shadcn/ui |
-| `backend/`  | NestJS + TypeScript, Prisma, PostgreSQL          |
+| `backend/`  | NestJS + TypeScript, Prisma, PostgreSQL            |
 
 ## Prerequisites
 
@@ -65,6 +65,17 @@ The home page depends on who you act as. Students (project owners and members) l
 - Dana: team lead of Campus Navigator; Eli: member
 
 The semester calendar (teaching weeks, break and exam weeks) belongs to the workspace and is shared by all its groups. Milestones belong to a project and are managed by its owner or supervisor on the **Timeline** tab.
+
+## Record book
+
+Each project has a digital supervisor meeting record book on the **Record book** tab, laid out like the IS2901 paper book: a details page, then phases A-D (problem identification, analysis and design, system design, development and evaluation).
+
+- Students add an entry as an **Online update** (progress shared through Beacon) or an **In-person meeting**. The entry stays editable until the supervisor certifies it.
+- The supervisor either requests changes with a comment or certifies the entry. Certifying stamps a copy of their saved signature on the entry, so changing the signature later does not change entries that are already certified. Pending entries also show up on **Reviews**.
+- Each user saves one signature under **My signature** in the sidebar. They can upload an image, draw it, or type their name in a script font. Students sign the details page with their registration number, and supervisors sign it too.
+- **Print view** opens the book as A4 pages (a cover, the details page, and six meeting slots per phase), ready for **Print / Save as PDF**.
+
+In the seed, the BCN book already has a signed details page, two certified meetings, one entry with changes requested, and one entry waiting for Dr. Silva.
 
 ## Scripts
 

@@ -8,6 +8,8 @@ import { HomePage } from '@/pages/home-page'
 import { MyWeekPage } from '@/pages/my-week-page'
 import { ProjectOverviewPage } from '@/pages/project-overview-page'
 import { ProjectsPage } from '@/pages/projects-page'
+import { RecordBookPage } from '@/pages/record-book-page'
+import { RecordBookPrintPage } from '@/pages/record-book-print-page'
 import { ReviewsPage } from '@/pages/reviews-page'
 import { TimelinePage } from '@/pages/timeline-page'
 
@@ -28,6 +30,7 @@ export const router = createBrowserRouter([
           { path: 'board', element: <BoardPage /> },
           { path: 'contributions', element: <ContributionsPage /> },
           { path: 'timeline', element: <TimelinePage /> },
+          { path: 'record-book', element: <RecordBookPage /> },
         ],
       },
       {
@@ -40,5 +43,10 @@ export const router = createBrowserRouter([
         ),
       },
     ],
+  },
+  // Printable pages render without the app chrome.
+  {
+    path: '/projects/:projectId/record-book/print',
+    element: <RecordBookPrintPage />,
   },
 ])

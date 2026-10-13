@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { ContributionTypeBadge } from '@/components/badges'
 import { EntryActions } from '@/components/contributions/entry-actions'
+import { MeetingCard } from '@/components/record-book/meeting-card'
 import { EmptyState, ErrorState } from '@/components/query-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,7 @@ import type { ReviewQueue } from '@/lib/types'
 
 type QueueEntry = ReviewQueue['entries'][number]
 type QueueProject = ReviewQueue['projects'][number]
+type QueueMeeting = ReviewQueue['meetings'][number]
 
 const REVIEW_PERMISSIONS = { canEdit: false, canReview: true }
 
@@ -183,6 +185,49 @@ function ProjectQueue({
   )
 }
 
+function MeetingQueue({
+  project,
+  meetings,
+}: {
+  project: QueueProject
+  meetings: QueueMeeting[]
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Link
+            to={`/projects/${project.id}/record-book`}
+            className="hover:underline"
+          >
+            {project.name}
+          </Link>
+          <Badge variant="secondary" className="font-mono">
+            {project.key}
+          </Badge>
+        </CardTitle>
+        <CardDescription>
+          {meetings.length} record book{' '}
+          {meetings.length === 1 ? 'entry' : 'entries'} to certify
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="divide-y">
+        {meetings.map((meeting) => (
+          <MeetingCard
+            key={meeting.id}
+            projectId={project.id}
+            meeting={meeting}
+            members={[]}
+            canEdit={false}
+            canReview
+            showPhase
+          />
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function ReviewsPage() {
   const actingUserId = useActingUserId()
   const { data, error, isPending, refetch } = useReviewQueue()
@@ -204,6 +249,16 @@ export function ReviewsPage() {
           ),
       }))
       .filter((group) => group.entries.length > 0)
+  }, [data])
+
+  const meetingGroups = useMemo(() => {
+    if (!data) return []
+    return data.projects
+      .map((project) => ({
+        project,
+        meetings: data.meetings.filter((m) => m.project.id === project.id),
+      }))
+      .filter((group) => group.meetings.length > 0)
   }, [data])
 
   // Drop ids that left the queue (approved elsewhere or after a refetch).
@@ -235,7 +290,8 @@ export function ReviewsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Reviews</h1>
         <p className="text-muted-foreground text-sm">
-          Pending weekly contributions from the groups you supervise
+          Record book entries and weekly contributions from the groups you
+          supervise
         </p>
       </div>
       {groups.length > 0 && (
@@ -273,23 +329,48 @@ export function ReviewsPage() {
         description="Supervisors and project owners review weekly contributions."
       />
     )
-  } else if (groups.length === 0) {
+  } else if (groups.length === 0 && meetingGroups.length === 0) {
     body = (
       <EmptyState
         title="Nothing to review"
-        description="New entries from your groups will appear here."
+        description="New weekly contributions and record book entries from your groups will appear here."
       />
     )
   } else {
-    body = groups.map(({ project, entries }) => (
-      <ProjectQueue
-        key={project.id}
-        project={project}
-        entries={entries}
-        selected={selected}
-        onToggle={toggle}
-      />
-    ))
+    body = (
+      <>
+        {meetingGroups.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <h2 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Meeting records
+            </h2>
+            {meetingGroups.map(({ project, meetings }) => (
+              <MeetingQueue
+                key={project.id}
+                project={project}
+                meetings={meetings}
+              />
+            ))}
+          </section>
+        )}
+        {groups.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <h2 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Weekly contributions
+            </h2>
+            {groups.map(({ project, entries }) => (
+              <ProjectQueue
+                key={project.id}
+                project={project}
+                entries={entries}
+                selected={selected}
+                onToggle={toggle}
+              />
+            ))}
+          </section>
+        )}
+      </>
+    )
   }
 
   return (

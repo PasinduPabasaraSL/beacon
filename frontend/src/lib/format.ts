@@ -2,10 +2,15 @@ import type {
   AcademicWeek,
   ContributionReviewStatus,
   ContributionType,
+  MeetingMode,
+  MeetingPhase,
+  MeetingRecordStatus,
   MilestoneStatus,
   ProjectRole,
+  RecordBookDetails,
   Semester,
   SemesterBreakKind,
+  SignatureMethod,
   StatusCategory,
   TaskPriority,
   UserSummary,
@@ -166,6 +171,89 @@ export const MILESTONE_STATUS_STYLES: Record<MilestoneStatus, string> = {
   OVERDUE: 'border-red-200 bg-red-50 text-red-700',
   COMPLETE: 'border-green-200 bg-green-50 text-green-800',
 }
+
+export const SIGNATURE_METHOD_LABELS: Record<SignatureMethod, string> = {
+  UPLOAD: 'Uploaded',
+  DRAWN: 'Drawn',
+  TYPED: 'Typed',
+}
+
+/** Phases of the paper record book, in order. */
+export const MEETING_PHASES: MeetingPhase[] = [
+  'PROBLEM_IDENTIFICATION',
+  'ANALYSIS_DESIGN',
+  'SYSTEM_DESIGN',
+  'DEVELOPMENT_EVALUATION',
+]
+
+export const MEETING_PHASE_LETTERS: Record<MeetingPhase, string> = {
+  PROBLEM_IDENTIFICATION: 'A',
+  ANALYSIS_DESIGN: 'B',
+  SYSTEM_DESIGN: 'C',
+  DEVELOPMENT_EVALUATION: 'D',
+}
+
+export const MEETING_PHASE_LABELS: Record<MeetingPhase, string> = {
+  PROBLEM_IDENTIFICATION: 'Problem identification and project proposal',
+  ANALYSIS_DESIGN: 'Analysis and design',
+  SYSTEM_DESIGN: 'System design',
+  DEVELOPMENT_EVALUATION: 'Development, testing and evaluation',
+}
+
+export const MEETING_MODE_LABELS: Record<MeetingMode, string> = {
+  ONLINE_UPDATE: 'Online update',
+  IN_PERSON: 'In-person meeting',
+}
+
+export const MEETING_MODE_DESCRIPTIONS: Record<MeetingMode, string> = {
+  ONLINE_UPDATE: 'Progress shared with the supervisor through Beacon',
+  IN_PERSON: 'A meeting held face to face with the supervisor',
+}
+
+/** Online updates have contributors; in-person meetings have members present. */
+export const MEETING_ATTENDEE_LABELS: Record<MeetingMode, string> = {
+  ONLINE_UPDATE: 'Contributors',
+  IN_PERSON: 'Members present',
+}
+
+export const MEETING_STATUS_LABELS: Record<MeetingRecordStatus, string> = {
+  SUBMITTED: 'Awaiting supervisor',
+  CHANGES_REQUESTED: 'Changes requested',
+  CERTIFIED: 'Certified',
+}
+
+export const MEETING_STATUS_STYLES: Record<MeetingRecordStatus, string> = {
+  SUBMITTED: 'border-border text-muted-foreground',
+  CHANGES_REQUESTED: 'border-amber-200 bg-amber-50 text-amber-800',
+  CERTIFIED: 'border-green-200 bg-green-50 text-green-800',
+}
+
+/** Fields of the record book details page, in print order. */
+export const RECORD_BOOK_DETAIL_FIELDS: {
+  key: keyof RecordBookDetails
+  label: string
+  placeholder: string
+}[] = [
+  {
+    key: 'moduleTitle',
+    label: 'Module',
+    placeholder: 'IS2901 - Software Development Project',
+  },
+  { key: 'level', label: 'Level', placeholder: 'Level 02' },
+  { key: 'batch', label: 'Batch', placeholder: 'e.g. 22' },
+  { key: 'groupName', label: 'Group', placeholder: 'e.g. Group 07' },
+  {
+    key: 'department',
+    label: 'Department',
+    placeholder: 'Department of Information Technology',
+  },
+  {
+    key: 'faculty',
+    label: 'Faculty',
+    placeholder: 'Faculty of Information Technology',
+  },
+  { key: 'university', label: 'University', placeholder: 'University name' },
+]
 
 export const SEMESTER_BREAK_LABELS: Record<SemesterBreakKind, string> = {
   BREAK: 'Break',

@@ -3,13 +3,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ContributionReviewStatus, StatusCategory } from '@prisma/client';
+import {
+  ContributionReviewStatus,
+  MeetingRecordStatus,
+  ProjectRole,
+  StatusCategory,
+} from '@prisma/client';
 import { LOGGING_ROLES, REVIEWER_ROLES } from '../common/roles';
 import {
   academicWeekOf,
   semesterSelect,
   toSemesterResponse,
 } from '../common/semester';
+import { assertSignatureImage } from '../common/signature-image';
 import { UserSummary } from '../common/user-summary';
 import { addWeeks, startOfIsoWeek } from '../common/week';
 import {
@@ -22,8 +28,15 @@ import {
   toMilestoneResponse,
 } from '../milestones/milestones.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  meetingSelect,
+  toMeetingResponse,
+} from '../record-book/meeting-response';
+import { SaveSignatureDto } from './dto/save-signature.dto';
 
 const UPCOMING_MILESTONE_LIMIT = 5;
+
+const signatureSelect = { image: true, method: true, updatedAt: true } as const;
 
 const projectSummarySelect = { id: true, key: true, name: true } as const;
 
@@ -196,6 +209,18 @@ export class MeService {
       select: { ...entryWithProjectSelect, projectId: true },
     });
 
+    const supervisedProjectIds = memberships
+      .filter((m) => m.role === ProjectRole.SUPERVISOR)
+      .map((m) => m.project.id);
+    const meetings = await this.prisma.meetingRecord.findMany({
+      where: {
+        projectId: { in: supervisedProjectIds },
+        status: MeetingRecordStatus.SUBMITTED,
+      },
+      orderBy: [{ meetingDate: 'asc' }, { number: 'asc' }],
+      select: { ...meetingSelect, project: { select: projectSummarySelect } },
+    });
+
     const semesters = new Map(
       memberships.map(({ project }) => [
         project.id,
@@ -218,6 +243,10 @@ export class MeService {
           semesters.get(projectId) ?? null,
           entry.weekStart,
         ),
+      })),
+      meetings: meetings.map(({ project, ...meeting }) => ({
+        ...toMeetingResponse(meeting),
+        project,
       })),
     };
   }
@@ -263,6 +292,27 @@ export class MeService {
       },
     });
     return { approved: count };
+  }
+
+  getSignature(user: UserSummary) {
+    return this.prisma.userSignature.findUnique({
+      where: { userId: user.id },
+      select: signatureSelect,
+    });
+  }
+
+  saveSignature(user: UserSummary, dto: SaveSignatureDto) {
+    assertSignatureImage(dto.image);
+    return this.prisma.userSignature.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, image: dto.image, method: dto.method },
+      update: { image: dto.image, method: dto.method },
+      select: signatureSelect,
+    });
+  }
+
+  async deleteSignature(user: UserSummary) {
+    await this.prisma.userSignature.deleteMany({ where: { userId: user.id } });
   }
 
   private projectMemberships(userId: string) {

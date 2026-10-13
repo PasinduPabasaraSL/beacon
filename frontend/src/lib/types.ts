@@ -270,6 +270,86 @@ export interface ReviewQueue {
     teachingWeeks: number | null
   })[]
   entries: (ContributionWithProject & { academicWeek: AcademicWeek | null })[]
+  /** Record book entries waiting for the acting supervisor. */
+  meetings: (MeetingRecord & { project: ProjectRef })[]
+}
+
+export type SignatureMethod = 'UPLOAD' | 'DRAWN' | 'TYPED'
+
+export interface UserSignature {
+  /** PNG or JPEG data URL. */
+  image: string
+  method: SignatureMethod
+  updatedAt: string
+}
+
+export type MeetingMode = 'ONLINE_UPDATE' | 'IN_PERSON'
+
+export type MeetingPhase =
+  | 'PROBLEM_IDENTIFICATION'
+  | 'ANALYSIS_DESIGN'
+  | 'SYSTEM_DESIGN'
+  | 'DEVELOPMENT_EVALUATION'
+
+export type MeetingRecordStatus =
+  'SUBMITTED' | 'CHANGES_REQUESTED' | 'CERTIFIED'
+
+export interface MeetingRecord {
+  id: string
+  number: number
+  phase: MeetingPhase
+  mode: MeetingMode
+  meetingDate: string
+  summary: string
+  status: MeetingRecordStatus
+  supervisorComment: string | null
+  certifiedAt: string | null
+  /** Copy of the supervisor's signature at the time of certifying. */
+  signatureImage: string | null
+  createdAt: string
+  updatedAt: string
+  createdBy: UserSummary
+  certifiedBy: UserSummary | null
+  attendees: UserSummary[]
+}
+
+export interface RecordBookPerson {
+  user: UserSummary
+  role: ProjectRole
+  registrationNumber: string | null
+  signature: { image: string; signedAt: string } | null
+}
+
+export interface RecordBookDetails {
+  moduleTitle: string
+  level: string
+  batch: string | null
+  groupName: string | null
+  department: string | null
+  faculty: string | null
+  university: string | null
+}
+
+export interface RecordBook {
+  project: ProjectRef & { workspace: WorkspaceSummaryRef }
+  details: RecordBookDetails
+  supervisors: RecordBookPerson[]
+  members: RecordBookPerson[]
+  phases: { phase: MeetingPhase; meetings: MeetingRecord[] }[]
+}
+
+export interface MeetingInput {
+  phase: MeetingPhase
+  mode: MeetingMode
+  /** YYYY-MM-DD */
+  meetingDate: string
+  summary: string
+  attendeeIds: string[]
+}
+
+export interface MeetingReviewInput {
+  decision: 'CERTIFIED' | 'CHANGES_REQUESTED'
+  comment?: string
 }
 
 export interface WeeklyContributions {

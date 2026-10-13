@@ -8,6 +8,7 @@ import { MeModule } from './me/me.module';
 import { MilestonesModule } from './milestones/milestones.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { RecordBookModule } from './record-book/record-book.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     ProjectsModule,
     ContributionsModule,
     MilestonesModule,
+    RecordBookModule,
     WorkspacesModule,
     MeModule,
     DevModule,

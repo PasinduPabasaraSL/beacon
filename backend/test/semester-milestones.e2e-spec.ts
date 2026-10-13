@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
   ContributionReviewStatus,
@@ -9,7 +9,6 @@ import {
   WorkspaceRole,
 } from '@prisma/client';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { DEV_USER_HEADER } from '../src/auth/dev-auth.guard';
@@ -49,7 +48,7 @@ const PEOPLE = ['lecturer', 'lead', 'student', 'outsider'] as const;
 type Person = (typeof PEOPLE)[number];
 
 describe('Semester, milestones and personal views (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
 
   const suffix = randomUUID().slice(0, 8);
@@ -66,7 +65,7 @@ describe('Semester, milestones and personal views (e2e)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);

@@ -1,5 +1,6 @@
 import { UserRound } from 'lucide-react'
 import { useEffect } from 'react'
+import { MySignatureButton } from '@/components/signature/signature-dialog'
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ export function ActingUserSwitcher() {
           ))}
         </SelectContent>
       </Select>
+      {actingUserId && <MySignatureButton />}
     </div>
   )
 }

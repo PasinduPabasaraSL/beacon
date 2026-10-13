@@ -1,7 +1,11 @@
+import { MonitorSmartphone, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   CONTRIBUTION_TYPE_COLORS,
   CONTRIBUTION_TYPE_LABELS,
+  MEETING_MODE_LABELS,
+  MEETING_STATUS_LABELS,
+  MEETING_STATUS_STYLES,
   MILESTONE_STATUS_LABELS,
   MILESTONE_STATUS_STYLES,
   PRIORITY_LABELS,
@@ -12,6 +16,8 @@ import {
 import type {
   ContributionReviewStatus,
   ContributionType,
+  MeetingMode,
+  MeetingRecordStatus,
   MilestoneStatus,
   TaskPriority,
 } from '@/lib/types'
@@ -41,6 +47,28 @@ export function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {
   return (
     <Badge variant="outline" className={MILESTONE_STATUS_STYLES[status]}>
       {MILESTONE_STATUS_LABELS[status]}
+    </Badge>
+  )
+}
+
+export function MeetingStatusBadge({
+  status,
+}: {
+  status: MeetingRecordStatus
+}) {
+  return (
+    <Badge variant="outline" className={MEETING_STATUS_STYLES[status]}>
+      {MEETING_STATUS_LABELS[status]}
+    </Badge>
+  )
+}
+
+export function MeetingModeBadge({ mode }: { mode: MeetingMode }) {
+  const Icon = mode === 'IN_PERSON' ? Users : MonitorSmartphone
+  return (
+    <Badge variant="secondary" className="gap-1">
+      <Icon className="size-3" />
+      {MEETING_MODE_LABELS[mode]}
     </Badge>
   )
 }
