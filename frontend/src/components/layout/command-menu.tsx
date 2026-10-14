@@ -115,6 +115,7 @@ export function CommandMenu({
                 >
                   <ProjectIcon
                     projectKey={project.key}
+                    name={project.name}
                     logo={project.logo}
                     size="sm"
                   />

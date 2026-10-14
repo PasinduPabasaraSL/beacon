@@ -8,14 +8,25 @@ const SIZES = {
   xl: 'size-20 rounded-2xl text-2xl',
 }
 
-/** The project's uploaded logo, or a coloured tile with its key's initials. */
+/** First letters of the first two words, or the first two letters of a one-word name. */
+function initialsFor(name: string, fallback: string): string {
+  const [first = fallback, second] = name.match(/[\p{L}\p{N}]+/gu) ?? []
+  const initials = second
+    ? first.charAt(0) + second.charAt(0)
+    : first.slice(0, 2)
+  return initials.toUpperCase()
+}
+
+/** The project's uploaded logo, or a coloured tile with its name's initials. */
 export function ProjectIcon({
   projectKey,
+  name,
   logo,
   size = 'default',
   className,
 }: {
   projectKey: string
+  name: string
   logo?: string | null
   size?: keyof typeof SIZES
   className?: string
@@ -44,7 +55,7 @@ export function ProjectIcon({
       )}
       style={{ backgroundColor: `oklch(0.6 0.13 ${hueFor(projectKey)})` }}
     >
-      {projectKey.slice(0, 2)}
+      {initialsFor(name, projectKey)}
     </span>
   )
 }

@@ -65,7 +65,12 @@ function Hero({ project }: { project: PublicProjectProfile }) {
     <div className="bg-muted/40 border-b">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-4 py-8 sm:px-6">
         <div className="flex min-w-0 items-center gap-5">
-          <ProjectIcon projectKey={project.key} logo={project.logo} size="xl" />
+          <ProjectIcon
+            projectKey={project.key}
+            name={project.name}
+            logo={project.logo}
+            size="xl"
+          />
           <div className="flex min-w-0 flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">

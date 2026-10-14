@@ -31,10 +31,12 @@ const MAX_DESCRIPTION = 20_000
 
 function LogoField({
   project,
+  name,
   logo,
   onChange,
 }: {
   project: ProjectDetail
+  name: string
   logo: string | null
   onChange: (logo: string | null) => void
 }) {
@@ -57,7 +59,12 @@ function LogoField({
 
   return (
     <div className="flex flex-wrap items-center gap-5">
-      <ProjectIcon projectKey={project.key} logo={logo} size="xl" />
+      <ProjectIcon
+        projectKey={project.key}
+        name={name || project.name}
+        logo={logo}
+        size="xl"
+      />
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
           <Button
@@ -266,7 +273,12 @@ function ProfileForm({ project }: { project: ProjectDetail }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          <LogoField project={project} logo={logo} onChange={setLogo} />
+          <LogoField
+            project={project}
+            name={name}
+            logo={logo}
+            onChange={setLogo}
+          />
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="project-name">Project name</Label>

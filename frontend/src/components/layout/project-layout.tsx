@@ -109,7 +109,12 @@ function ProjectHeader({ project }: { project: ProjectDetail }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 items-center gap-3.5">
-        <ProjectIcon projectKey={project.key} logo={project.logo} size="lg" />
+        <ProjectIcon
+          projectKey={project.key}
+          name={project.name}
+          logo={project.logo}
+          size="lg"
+        />
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="text-muted-foreground text-xs">
             {project.workspace.name}
