@@ -113,7 +113,11 @@ export function CommandMenu({
                     run(() => navigate(`/projects/${project.id}`))
                   }
                 >
-                  <ProjectIcon projectKey={project.key} size="sm" />
+                  <ProjectIcon
+                    projectKey={project.key}
+                    logo={project.logo}
+                    size="sm"
+                  />
                   {project.name}
                   <CommandShortcut>{project.key}</CommandShortcut>
                 </CommandItem>

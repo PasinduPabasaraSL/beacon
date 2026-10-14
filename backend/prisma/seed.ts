@@ -151,6 +151,33 @@ async function seedTimesheet(
   });
 }
 
+const BCN_README = `# Beacon Capstone
+
+Semester capstone project used to demo **Beacon**, an open-source project
+management platform for university software teams.
+
+## What we are building
+
+- A Kanban board with sprints, priorities and task dependencies
+- Weekly timesheets that supervisors review and approve
+- A digital record book with signed and certified meeting entries
+
+## Tech stack
+
+| Layer    | Tools                          |
+| -------- | ------------------------------ |
+| Frontend | React, Vite, Tailwind CSS      |
+| Backend  | NestJS, Prisma, PostgreSQL     |
+
+## Milestones
+
+- [x] Project proposal
+- [ ] Midterm demo
+- [ ] Final presentation
+
+Run it locally with \`docker compose up\`.
+`;
+
 async function main() {
   // Recreate the demo workspace from scratch; everything under it cascades.
   await prisma.workspace.deleteMany({ where: { slug: DEMO_WORKSPACE_SLUG } });
@@ -203,7 +230,7 @@ async function main() {
       workspaceId: workspace.id,
       name: 'Beacon Capstone',
       key: 'BCN',
-      description: 'Semester capstone project used to demo Beacon.',
+      description: BCN_README,
       members: {
         create: [
           { userId: alice.id, role: ProjectRole.OWNER },

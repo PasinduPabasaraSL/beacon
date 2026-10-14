@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { SprintStatus, StatusCategory } from '@prisma/client';
-import { userSummarySelect } from '../common/user-summary';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ProjectRole, SprintStatus, StatusCategory } from '@prisma/client';
+import { assertLogoImage } from '../common/signature-image';
+import { type UserSummary, userSummarySelect } from '../common/user-summary';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateProjectProfileDto } from './dto/update-profile.dto';
 
 export type CategoryCounts = Record<StatusCategory, number>;
 
@@ -25,6 +31,7 @@ export class ProjectsService {
       orderBy: { createdAt: 'asc' },
       include: {
         workspace: { select: { id: true, name: true, slug: true } },
+        recordBook: { select: { groupName: true } },
         members: {
           select: { role: true, user: { select: userSummarySelect } },
           orderBy: { joinedAt: 'asc' },
@@ -53,6 +60,9 @@ export class ProjectsService {
         key: project.key,
         name: project.name,
         description: project.description,
+        logo: project.logo,
+        isPublic: project.isPublic,
+        teamName: project.recordBook?.groupName ?? null,
         workspace: project.workspace,
         members: project.members.map((m) => ({ ...m.user, role: m.role })),
         taskCounts: { total, done: byCategory.DONE, byCategory },
@@ -66,6 +76,7 @@ export class ProjectsService {
       where: { id: projectId },
       include: {
         workspace: { select: { id: true, name: true, slug: true } },
+        recordBook: { select: { groupName: true } },
         members: {
           select: { role: true, user: { select: userSummarySelect } },
           orderBy: { joinedAt: 'asc' },
@@ -96,10 +107,100 @@ export class ProjectsService {
       key: project.key,
       name: project.name,
       description: project.description,
+      logo: project.logo,
+      isPublic: project.isPublic,
+      teamName: project.recordBook?.groupName ?? null,
       workspace: project.workspace,
       members: project.members.map((m) => ({ ...m.user, role: m.role })),
       statuses: project.statuses,
       sprints: project.sprints,
+    };
+  }
+
+  async updateProfile(
+    projectId: string,
+    user: UserSummary,
+    dto: UpdateProjectProfileDto,
+  ) {
+    const membership = await this.prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: user.id } },
+      select: { role: true },
+    });
+    if (!membership) {
+      const exists = await this.prisma.project.count({
+        where: { id: projectId },
+      });
+      if (!exists)
+        throw new NotFoundException(`Project ${projectId} not found`);
+    }
+    if (membership?.role !== ProjectRole.OWNER) {
+      throw new ForbiddenException(
+        'Only the team lead can edit the project profile',
+      );
+    }
+    if (typeof dto.logo === 'string') assertLogoImage(dto.logo);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id: projectId },
+        data: {
+          name: dto.name,
+          description:
+            dto.description === undefined
+              ? undefined
+              : dto.description.trim() || null,
+          logo: dto.logo,
+          isPublic: dto.isPublic,
+        },
+      });
+      if (dto.teamName !== undefined) {
+        const groupName = dto.teamName || null;
+        await tx.recordBook.upsert({
+          where: { projectId },
+          create: { projectId, groupName },
+          update: { groupName },
+        });
+      }
+    });
+    return this.get(projectId);
+  }
+
+  /** The profile anyone with the link can see, unless the team lead made it private. */
+  async publicProfile(projectId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, archivedAt: null },
+      select: {
+        id: true,
+        key: true,
+        name: true,
+        description: true,
+        logo: true,
+        isPublic: true,
+        updatedAt: true,
+        workspace: { select: { name: true } },
+        recordBook: { select: { groupName: true } },
+        members: {
+          select: { role: true, user: { select: userSummarySelect } },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+    if (!project) {
+      throw new NotFoundException('This project does not exist');
+    }
+    if (!project.isPublic) {
+      throw new ForbiddenException('This project profile is private');
+    }
+    return {
+      id: project.id,
+      key: project.key,
+      name: project.name,
+      description: project.description,
+      logo: project.logo,
+      teamName: project.recordBook?.groupName ?? null,
+      workspace: project.workspace,
+      members: project.members.map((m) => ({ ...m.user, role: m.role })),
+      updatedAt: project.updatedAt,
     };
   }
 

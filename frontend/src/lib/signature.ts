@@ -87,7 +87,7 @@ export async function renderTypedSignature(name: string): Promise<string> {
   return image
 }
 
-function loadImage(file: File): Promise<HTMLImageElement> {
+export function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const image = new Image()

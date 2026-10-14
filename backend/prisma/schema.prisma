@@ -197,7 +197,12 @@ model Project {
   name           String
   /// Short uppercase prefix for task identifiers, e.g. "BCN" -> BCN-42.
   key            String
+  /// Markdown, shown on the project profile like a README.
   description    String?
+  /// Square PNG, JPEG or WebP data URL; the initials tile is shown when unset.
+  logo           String?
+  /// Whether anyone with the link can see the project profile.
+  isPublic       Boolean   @default(true) @map("is_public")
   /// Last issued task number; incremented when a task is created.
   taskCounter    Int       @default(0) @map("task_counter")
   /// Last issued record book meeting number.

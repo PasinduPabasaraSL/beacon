@@ -1,12 +1,15 @@
 import {
   BookOpenCheck,
   Clock,
+  Globe,
   Link2,
   MoreHorizontal,
   Printer,
+  Settings,
   SquareKanban,
+  Users,
 } from 'lucide-react'
-import { NavLink, Outlet, useNavigate, useParams } from 'react-router'
+import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ProjectIcon } from '@/components/project-icon'
 import { ErrorState } from '@/components/query-state'
@@ -22,6 +25,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { UserAvatarStack } from '@/components/user-avatar'
 import { useProject, useProjects, useRecordBook } from '@/hooks/queries'
+import { useActingUserId } from '@/lib/acting-user'
 import { formatDate } from '@/lib/format'
 import { PROJECT_TABS } from '@/lib/project-tabs'
 import type { ProjectDetail } from '@/lib/types'
@@ -42,7 +46,13 @@ function useTabCounts(projectId: string): Record<string, number | undefined> {
   }
 }
 
-function ProjectActions({ project }: { project: ProjectDetail }) {
+function ProjectActions({
+  project,
+  isLead,
+}: {
+  project: ProjectDetail
+  isLead: boolean
+}) {
   const navigate = useNavigate()
 
   const copyLink = async () => {
@@ -76,18 +86,30 @@ function ProjectActions({ project }: { project: ProjectDetail }) {
         <DropdownMenuItem onSelect={copyLink}>
           <Link2 /> Copy project link
         </DropdownMenuItem>
+        {isLead && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => navigate('settings')}>
+              <Settings /> Project settings
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
 function ProjectHeader({ project }: { project: ProjectDetail }) {
+  const actingUserId = useActingUserId()
   const activeSprint = project.sprints.find((s) => s.status === 'ACTIVE')
+  const isLead = project.members.some(
+    (m) => m.id === actingUserId && m.role === 'OWNER',
+  )
 
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 items-center gap-3.5">
-        <ProjectIcon projectKey={project.key} size="lg" />
+        <ProjectIcon projectKey={project.key} logo={project.logo} size="lg" />
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="text-muted-foreground text-xs">
             {project.workspace.name}
@@ -100,6 +122,12 @@ function ProjectHeader({ project }: { project: ProjectDetail }) {
               {project.key}
             </Badge>
           </div>
+          {project.teamName && (
+            <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm">
+              <Users className="size-3.5 shrink-0" />
+              <span className="truncate">{project.teamName}</span>
+            </p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -110,7 +138,14 @@ function ProjectHeader({ project }: { project: ProjectDetail }) {
           </span>
         )}
         <UserAvatarStack users={project.members} max={5} />
-        <ProjectActions project={project} />
+        {project.isPublic && (
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/p/${project.id}`} target="_blank" rel="noreferrer">
+              <Globe /> Public page
+            </Link>
+          </Button>
+        )}
+        <ProjectActions project={project} isLead={isLead} />
       </div>
     </div>
   )

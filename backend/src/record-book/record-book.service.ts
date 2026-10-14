@@ -79,6 +79,7 @@ export class RecordBookService {
         id: true,
         key: true,
         name: true,
+        logo: true,
         workspace: { select: { id: true, name: true } },
         recordBook: { select: detailsSelect },
         members: {
@@ -124,6 +125,7 @@ export class RecordBookService {
         id: project.id,
         key: project.key,
         name: project.name,
+        logo: project.logo,
         workspace: project.workspace,
       },
       details: project.recordBook ?? DETAIL_DEFAULTS,

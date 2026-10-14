@@ -15,6 +15,8 @@ import type {
   ProjectDashboard,
   ProjectDetail,
   ProjectListItem,
+  ProjectProfileInput,
+  PublicProjectProfile,
   RecordBook,
   RecordBookDetails,
   ReviewQueue,
@@ -44,6 +46,34 @@ export function useProject(projectId: string) {
     queryFn: ({ signal }) =>
       apiFetch<ProjectDetail>(`/projects/${projectId}`, { signal }),
     enabled: !!projectId,
+  })
+}
+
+export function useUpdateProjectProfile(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ProjectProfileInput) =>
+      apiFetch<ProjectDetail>(`/projects/${projectId}/profile`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-projects'] }),
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
+      ]),
+  })
+}
+
+export function usePublicProject(projectId: string) {
+  return useQuery({
+    queryKey: ['public-projects', projectId],
+    queryFn: ({ signal }) =>
+      apiFetch<PublicProjectProfile>(`/public/projects/${projectId}`, {
+        signal,
+      }),
+    retry: false,
   })
 }
 

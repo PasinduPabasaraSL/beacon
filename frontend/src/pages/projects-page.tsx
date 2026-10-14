@@ -16,12 +16,14 @@ import { Progress } from '@/components/ui/progress'
 import { UserAvatarStack } from '@/components/user-avatar'
 import { useWorkspaceProjects } from '@/hooks/use-workspace-projects'
 import { formatDate } from '@/lib/format'
+import { markdownExcerpt } from '@/lib/markdown'
 import type { ProjectListItem } from '@/lib/types'
 import { setWorkspaceId } from '@/lib/workspace'
 
 function ProjectCard({ project }: { project: ProjectListItem }) {
   const { total, done } = project.taskCounts
   const percent = total === 0 ? 0 : Math.round((done / total) * 100)
+  const excerpt = markdownExcerpt(project.description)
 
   return (
     <Link
@@ -31,10 +33,12 @@ function ProjectCard({ project }: { project: ProjectListItem }) {
       <Card className="hover:border-foreground/20 h-full transition-[border-color,box-shadow] hover:shadow-md">
         <CardHeader>
           <div className="flex items-start gap-3">
-            <ProjectIcon projectKey={project.key} />
+            <ProjectIcon projectKey={project.key} logo={project.logo} />
             <div className="min-w-0 flex-1">
               <CardTitle className="truncate">{project.name}</CardTitle>
-              <CardDescription>{project.workspace.name}</CardDescription>
+              <CardDescription className="truncate">
+                {project.teamName ?? project.workspace.name}
+              </CardDescription>
             </div>
             <Badge variant="secondary" className="font-mono">
               {project.key}
@@ -42,9 +46,9 @@ function ProjectCard({ project }: { project: ProjectListItem }) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {project.description && (
+          {excerpt && (
             <p className="text-muted-foreground line-clamp-2 text-sm">
-              {project.description}
+              {excerpt}
             </p>
           )}
           <div className="flex flex-col gap-1.5">

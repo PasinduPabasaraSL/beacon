@@ -43,7 +43,12 @@ export interface ProjectListItem {
   id: string
   key: string
   name: string
+  /** Markdown. */
   description: string | null
+  /** Image data URL; the initials tile is shown when unset. */
+  logo: string | null
+  isPublic: boolean
+  teamName: string | null
   workspace: WorkspaceSummary
   members: ProjectMember[]
   taskCounts: {
@@ -58,7 +63,12 @@ export interface ProjectDetail {
   id: string
   key: string
   name: string
+  /** Markdown. */
   description: string | null
+  /** Image data URL; the initials tile is shown when unset. */
+  logo: string | null
+  isPublic: boolean
+  teamName: string | null
   workspace: WorkspaceSummary
   members: ProjectMember[]
   statuses: {
@@ -68,6 +78,27 @@ export interface ProjectDetail {
     color: string | null
   }[]
   sprints: (SprintSummary & { goal: string | null; status: SprintStatus })[]
+}
+
+export interface ProjectProfileInput {
+  name?: string
+  teamName?: string
+  description?: string
+  logo?: string | null
+  isPublic?: boolean
+}
+
+/** What anyone with the link sees on a public project profile. */
+export interface PublicProjectProfile {
+  id: string
+  key: string
+  name: string
+  description: string | null
+  logo: string | null
+  teamName: string | null
+  workspace: { name: string }
+  members: ProjectMember[]
+  updatedAt: string
 }
 
 export interface BoardTask {
@@ -372,7 +403,10 @@ export interface RecordBookDetails {
 }
 
 export interface RecordBook {
-  project: ProjectRef & { workspace: WorkspaceSummaryRef }
+  project: ProjectRef & {
+    logo: string | null
+    workspace: WorkspaceSummaryRef
+  }
   details: RecordBookDetails
   supervisors: RecordBookPerson[]
   members: RecordBookPerson[]

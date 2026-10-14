@@ -7,7 +7,9 @@ import { ContributionsPage } from '@/pages/contributions-page'
 import { HomePage } from '@/pages/home-page'
 import { MyWeekPage } from '@/pages/my-week-page'
 import { ProjectOverviewPage } from '@/pages/project-overview-page'
+import { ProjectSettingsPage } from '@/pages/project-settings-page'
 import { ProjectsPage } from '@/pages/projects-page'
+import { PublicProjectPage } from '@/pages/public-project-page'
 import { RecordBookPage } from '@/pages/record-book-page'
 import { RecordBookPrintPage } from '@/pages/record-book-print-page'
 import { ReviewsPage } from '@/pages/reviews-page'
@@ -31,6 +33,7 @@ export const router = createBrowserRouter([
           { path: 'contributions', element: <ContributionsPage /> },
           { path: 'timeline', element: <TimelinePage /> },
           { path: 'record-book', element: <RecordBookPage /> },
+          { path: 'settings', element: <ProjectSettingsPage /> },
         ],
       },
       {
@@ -49,4 +52,5 @@ export const router = createBrowserRouter([
     path: '/projects/:projectId/record-book/print',
     element: <RecordBookPrintPage />,
   },
+  { path: '/p/:projectId', element: <PublicProjectPage /> },
 ])

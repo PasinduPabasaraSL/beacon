@@ -169,6 +169,7 @@ function ProjectNav() {
                     <NavLink to={to} onClick={() => setOpenMobile(false)}>
                       <ProjectIcon
                         projectKey={project.key}
+                        logo={project.logo}
                         size="sm"
                         className="-mx-0.5"
                       />
